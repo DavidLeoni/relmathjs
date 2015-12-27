@@ -1,0 +1,19 @@
+{
+    "version": "1.7.5",
+    "compilerOptions": {
+        "target": "ES5",
+        "module": "amd",
+        "rootDir": "./",
+        "outDir": "js",              
+        "sourceMap": true,
+        "declaration": false,
+        "noImplicitAny": false,
+        "removeComments": false,
+        "noEmitOnError": false ,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators":true    
+    },
+    "files": [
+          "index.ts"    
+    ]
+}
