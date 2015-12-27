@@ -1,4 +1,88 @@
 
+
+
+/**
+ * Deep copy an object (make copies of all its object properties, sub-properties, etc.)
+ * An improved version of http://keithdevens.com/weblog/archive/2007/Jun/07/javascript.clone
+ * that doesn't break if the constructor has required parameters
+ * 
+ * It also borrows some code from http://stackoverflow.com/a/11621004/560114
+ * 
+ * (dav: solution copied from here: http://stackoverflow.com/a/13333781)
+ */  
+function clone(src, /* INTERNAL */ _visited?) {
+    if(src == null || typeof(src) !== 'object'){
+        return src;
+    }
+
+    // Initialize the visited objects array if needed
+    // This is used to detect cyclic references
+    if (_visited == undefined){
+        _visited = [];
+    }
+    // Otherwise, ensure src has not already been visited
+    else {
+        var i, len = _visited.length;
+        for (i = 0; i < len; i++) {
+            // If src was already visited, don't try to copy it, just return the reference
+            if (src === _visited[i]) {
+                return src;
+            }
+        }
+    }
+
+    // Add this object to the visited array
+    _visited.push(src);
+
+    //Honor native/custom clone methods
+    if(typeof src.clone == 'function'){
+        return src.clone(true);
+    }
+
+    //Special cases:
+    //Array
+    if (Object.prototype.toString.call(src) == '[object Array]') {
+        //[].slice(0) would soft clone
+        ret = src.slice();
+        var i = ret.length;
+        while (i--){
+            ret[i] = clone(ret[i], _visited);
+        }
+        return ret;
+    }
+    //Date
+    if (src instanceof Date){
+        return new Date(src.getTime());
+    }
+    //RegExp
+    if(src instanceof RegExp){
+        return new RegExp(src);
+    }
+    //DOM Elements
+    if(src.nodeType && typeof src.cloneNode == 'function'){
+        return src.cloneNode(true);
+    }
+
+    //If we've reached here, we have a regular object, array, or function
+
+    //make sure the returned object has the same prototype as the original
+    var proto = (Object.getPrototypeOf ? Object.getPrototypeOf(src): src.__proto__);
+    if (!proto) {
+        proto = src.constructor.prototype; //this line would probably only be reached by very old browsers 
+    }
+    var ret = Object.create(proto);
+
+    for(var key in src){
+        //Note: this does NOT preserve ES5 property attributes like 'writable', 'enumerable', etc.
+        //For an example of how this could be modified to do so, see the singleMixin() function
+        ret[key] = clone(src[key], _visited);
+    }
+    return ret;
+}
+
+
+
+
 let SVG: any;
 
 let checkNotNull = (x: any, msg?: string): any => {
@@ -49,6 +133,75 @@ let checkNotEmpty = (arr: Array<any>, msg?: string): any => {
     }
 }
 
+/*
+class Handler {
+    msgs:string[];  
+    constructor(msgs:string[]) {
+        this.msgs = msgs;
+    }
+    greet() {
+        this.msgs.forEach(x=>alert(x));
+    }
+}
+
+function createHandler(handler: typeof ObjectConstructor, params: string[]) {
+    var obj = new handler(params);
+    return obj;
+}
+
+var h = createHandler(Handler, ['hi', 'bye']);
+h.greet();
+*/
+/**
+ * <P> the fields of the class. P should be an interface with all optional types. 
+ */
+ class Immutable<P> {
+
+    protected check() {
+        return this;
+    }
+    
+    static getInstance() {
+     return new this;
+    }
+	
+    /**
+     * Returns a shallow clone merging in the result the provided fields.
+     */
+    public with(fields: P): this {
+        
+        let ret = clone(this);
+        for (let key of Object.keys(fields)) {
+            ret[key] = fields[key];
+        }
+        return ret.check();
+    }
+
+    public static trial(){
+        return new this;
+    }
+}
+
+/**
+ * Example of parameters
+ */
+interface MyClassFields {
+    x?: string;
+    y? : number;
+}
+
+class MyClass extends Immutable<MyClassFields> {
+
+    x: string;
+    y: number;
+
+    f() {	        
+        //return this.check();
+        return this.with({ x: "a" });
+    }
+}
+
+
 let DEFAULT_RADIUS: number = 30;
 
 
@@ -80,129 +233,38 @@ let checkColor = (colorString: string) => {
     }
 }
 
-class StyleBuilder {
-    private built;
-    private style;
-
-    constructor(style?: Style) {
-        if (style) {
-            this.style = clone(style);
-        } else {
-            this.style = new Style();
-        }
-        this.built = false;
-    }
-
-    checkAlreadyBuilt() {
-        if (this.built) {
-            throw new Error("Builder already built an object!");
-        }
-    }
-
-    color(color: string) {
-        this.checkAlreadyBuilt();
-        checkColor(color);
-        this.style.color = color;
-        return this;
-    }
-
-    backgroundColor(backgroundColor: string) {
-        this.checkAlreadyBuilt();
-        checkColor(backgroundColor);
-        this.style.backgroundColor = backgroundColor;
-        return this;
-    }
-
-    borderColor(borderColor: string) {
-        this.checkAlreadyBuilt();
-        checkColor(borderColor);
-        this.style.borderColor = borderColor;
-        return this;
-    }
-
-    fontSize(fontSize: number) {
-        this.checkAlreadyBuilt();
-        checkNotNull(fontSize);
-        this.style.fontSize = fontSize;
-        return this;
-    }
-
-    build(): Style {
-        this.checkAlreadyBuilt();
-        this.built = true;
-        return this.style;
-    }
+interface StyleParams {
+    
+    color? : string;
+    backgroundColor? : string;
+    borderColor? : string;
+    fontSize? : string;          
 }
 
-class Style {
+class Style extends Immutable<StyleParams>{
 
-    private static DEFAULT = new Style();
+    public static DEFAULT = new Style();
 
     color = "#000";
     backgroundColor = "#fff";
     borderColor = "#000";
     fontSize = 10;
 
-    static builder(style?: Style): StyleBuilder {
-        return new StyleBuilder(style);
-    }
-
     static of(): Style {
         return Style.DEFAULT;
     }
-}
-
-let DEBUG_STYLE = Style.builder(Style.of())
-    .backgroundColor("#ecc")
-    .color("#f00")
-    .borderColor("#f00")
-    .build();
-
-
-/**
- * <P> the fields of the class. P should be an interface with all optional types. 
- */
-abstract class Immutable<P> {
-
-    protected check() {
-        return this;
-    }
-	
-    /**
-     * Returns a shallow clone merging in the result the provided fields.
-     */
-    protected with(fields: P): this {
-        let ret = clone(this);
-        for (let key of Object.keys(fields)) {
-            ret[key] = fields[key];
-        }
-        return ret.check();
-    }
-
-}
-
-/**
- * Example of parameters
- */
-interface MyClassFields {
-    x?: string;
-    y? : number;
-}
-
-class MyClass extends Immutable<MyClassFields> {
-
-    x: string;
-    y: number;
-
-    f() {	
-        //return this.check();
-        return this.with({ x: "a" });
+    
+    f(){
+        this.with({color:"a"});
     }
 }
 
-
-
-
+let DEBUG_STYLE = Style.DEFAULT.with({
+    backgroundColor :"#ecc",
+    color:"#f00",
+    borderColor: "#f00",    
+});
+    
 
 
 /**
@@ -329,48 +391,6 @@ class Rect {
         this.width = width;
         this.height = height;
     }
-}
-
-
-
-
-
-/**
- * Everybody needs cloning, see http://stackoverflow.com/a/24648941
- */
-function clone<T>(o: T): T {
-    const gdcc = "__getDeepCircularCopy__";
-    if (o !== Object(o)) {
-        return o; // primitive value
-    }
-
-    var set = gdcc in o,
-        cache = o[gdcc],
-        result;
-    if (set && typeof cache == "function") {
-        return cache();
-    }
-    // else
-    o[gdcc] = function() { return result; }; // overwrite
-    if (o instanceof Array) {
-        result = [];
-        for (var i = 0; i < (<any>o).length; i++) {
-            result[i] = clone(o[i]);
-        }
-    } else {
-        result = {};
-        for (var prop in o)
-            if (prop != gdcc)
-                result[prop] = clone(o[prop]);
-            else if (set)
-                result[prop] = clone(cache);
-    }
-    if (set) {
-        o[gdcc] = cache; // reset
-    } else {
-        delete o[gdcc]; // unset again
-    }
-    return result;
 }
 
 
@@ -511,9 +531,8 @@ let rel = new Relation(["a", "b"], [1, 2], [[true, false], [false, false]]);
 let display = new Display(300, 300);
 console.log("r = ", rel);
 
-let relStyle = Style.builder()
-    .backgroundColor("#00f")
-    .build();
+let relStyle = Style.DEFAULT.with({backgroundColor : "#00f"});
+        
 
 //display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
 

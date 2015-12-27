@@ -3,6 +3,76 @@ var __extends = (this && this.__extends) || function (d, b) {
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
+/**
+ * Deep copy an object (make copies of all its object properties, sub-properties, etc.)
+ * An improved version of http://keithdevens.com/weblog/archive/2007/Jun/07/javascript.clone
+ * that doesn't break if the constructor has required parameters
+ *
+ * It also borrows some code from http://stackoverflow.com/a/11621004/560114
+ *
+ * (dav: solution copied from here: http://stackoverflow.com/a/13333781)
+ */
+function clone(src, /* INTERNAL */ _visited) {
+    if (src == null || typeof (src) !== 'object') {
+        return src;
+    }
+    // Initialize the visited objects array if needed
+    // This is used to detect cyclic references
+    if (_visited == undefined) {
+        _visited = [];
+    }
+    else {
+        var i, len = _visited.length;
+        for (i = 0; i < len; i++) {
+            // If src was already visited, don't try to copy it, just return the reference
+            if (src === _visited[i]) {
+                return src;
+            }
+        }
+    }
+    // Add this object to the visited array
+    _visited.push(src);
+    //Honor native/custom clone methods
+    if (typeof src.clone == 'function') {
+        return src.clone(true);
+    }
+    //Special cases:
+    //Array
+    if (Object.prototype.toString.call(src) == '[object Array]') {
+        //[].slice(0) would soft clone
+        ret = src.slice();
+        var i = ret.length;
+        while (i--) {
+            ret[i] = clone(ret[i], _visited);
+        }
+        return ret;
+    }
+    //Date
+    if (src instanceof Date) {
+        return new Date(src.getTime());
+    }
+    //RegExp
+    if (src instanceof RegExp) {
+        return new RegExp(src);
+    }
+    //DOM Elements
+    if (src.nodeType && typeof src.cloneNode == 'function') {
+        return src.cloneNode(true);
+    }
+    //If we've reached here, we have a regular object, array, or function
+    //make sure the returned object has the same prototype as the original
+    var proto = (Object.getPrototypeOf ? Object.getPrototypeOf(src) : src.__proto__);
+    if (!proto) {
+        proto = src.constructor.prototype; //this line would probably only be reached by very old browsers 
+    }
+    var ret = Object.create(proto);
+    for (var key in src) {
+        //Note: this does NOT preserve ES5 property attributes like 'writable', 'enumerable', etc.
+        //For an example of how this could be modified to do so, see the singleMixin() function
+        ret[key] = clone(src[key], _visited);
+    }
+    return ret;
+}
 var SVG;
 var checkNotNull = function (x, msg) {
     if (x || typeof x === "number" || typeof x === "string") {
@@ -49,6 +119,64 @@ var checkNotEmpty = function (arr, msg) {
         throw new Error(newMsg);
     }
 };
+/*
+class Handler {
+    msgs:string[];
+    constructor(msgs:string[]) {
+        this.msgs = msgs;
+    }
+    greet() {
+        this.msgs.forEach(x=>alert(x));
+    }
+}
+
+function createHandler(handler: typeof ObjectConstructor, params: string[]) {
+    var obj = new handler(params);
+    return obj;
+}
+
+var h = createHandler(Handler, ['hi', 'bye']);
+h.greet();
+*/
+/**
+ * <P> the fields of the class. P should be an interface with all optional types.
+ */
+var Immutable = (function () {
+    function Immutable() {
+    }
+    Immutable.prototype.check = function () {
+        return this;
+    };
+    Immutable.getInstance = function () {
+        return new this;
+    };
+    /**
+     * Returns a shallow clone merging in the result the provided fields.
+     */
+    Immutable.prototype.with = function (fields) {
+        var ret = clone(this);
+        for (var _i = 0, _a = Object.keys(fields); _i < _a.length; _i++) {
+            var key = _a[_i];
+            ret[key] = fields[key];
+        }
+        return ret.check();
+    };
+    Immutable.trial = function () {
+        return new this;
+    };
+    return Immutable;
+})();
+var MyClass = (function (_super) {
+    __extends(MyClass, _super);
+    function MyClass() {
+        _super.apply(this, arguments);
+    }
+    MyClass.prototype.f = function () {
+        //return this.check();
+        return this.with({ x: "a" });
+    };
+    return MyClass;
+})(Immutable);
 var DEFAULT_RADIUS = 30;
 var toText = function (obj) {
     if (typeof obj === "string"
@@ -74,110 +202,29 @@ var checkColor = function (colorString) {
         }
     }
 };
-var StyleBuilder = (function () {
-    function StyleBuilder(style) {
-        if (style) {
-            this.style = clone(style);
-        }
-        else {
-            this.style = new Style();
-        }
-        this.built = false;
-    }
-    StyleBuilder.prototype.checkAlreadyBuilt = function () {
-        if (this.built) {
-            throw new Error("Builder already built an object!");
-        }
-    };
-    StyleBuilder.prototype.color = function (color) {
-        this.checkAlreadyBuilt();
-        checkColor(color);
-        this.style.color = color;
-        return this;
-    };
-    StyleBuilder.prototype.backgroundColor = function (backgroundColor) {
-        this.checkAlreadyBuilt();
-        checkColor(backgroundColor);
-        this.style.backgroundColor = backgroundColor;
-        return this;
-    };
-    StyleBuilder.prototype.borderColor = function (borderColor) {
-        this.checkAlreadyBuilt();
-        checkColor(borderColor);
-        this.style.borderColor = borderColor;
-        return this;
-    };
-    StyleBuilder.prototype.fontSize = function (fontSize) {
-        this.checkAlreadyBuilt();
-        checkNotNull(fontSize);
-        this.style.fontSize = fontSize;
-        return this;
-    };
-    StyleBuilder.prototype.build = function () {
-        this.checkAlreadyBuilt();
-        this.built = true;
-        return this.style;
-    };
-    return StyleBuilder;
-})();
-var Style = (function () {
+var Style = (function (_super) {
+    __extends(Style, _super);
     function Style() {
+        _super.apply(this, arguments);
         this.color = "#000";
         this.backgroundColor = "#fff";
         this.borderColor = "#000";
         this.fontSize = 10;
     }
-    Style.builder = function (style) {
-        return new StyleBuilder(style);
-    };
     Style.of = function () {
         return Style.DEFAULT;
     };
+    Style.prototype.f = function () {
+        this.with({ color: "a" });
+    };
     Style.DEFAULT = new Style();
     return Style;
-})();
-var DEBUG_STYLE = Style.builder(Style.of())
-    .backgroundColor("#ecc")
-    .color("#f00")
-    .borderColor("#f00")
-    .build();
-/*
-interface P {
-    a?:string;
-    b?:number;
-}
-*/
-var Immutable = (function () {
-    function Immutable() {
-    }
-    Immutable.prototype.check = function () {
-        return this;
-    };
-    Immutable.prototype.with = function (p) {
-        var ret = clone(this);
-        for (var _i = 0, _a = Object.keys(p); _i < _a.length; _i++) {
-            var key = _a[_i];
-            ret[key] = p[key];
-        }
-        return ret.check();
-    };
-    return Immutable;
-})();
-var MyClass = (function (_super) {
-    __extends(MyClass, _super);
-    function MyClass() {
-        _super.apply(this, arguments);
-    }
-    MyClass.prototype.check = function () {
-        return this;
-    };
-    MyClass.prototype.f = function () {
-        var y = Math.pow(2, 4);
-        //return this.check();
-        return this.with({ v: 3 });
-    };
-    return MyClass;
 })(Immutable);
+var DEBUG_STYLE = Style.DEFAULT.with({
+    backgroundColor: "#ecc",
+    color: "#f00",
+    borderColor: "#f00",
+});
 /**
  * <pre>
  *
@@ -276,42 +323,6 @@ var Rect = (function () {
     }
     return Rect;
 })();
-/**
- * Everybody needs cloning, see http://stackoverflow.com/a/24648941
- */
-function clone(o) {
-    var gdcc = "__getDeepCircularCopy__";
-    if (o !== Object(o)) {
-        return o; // primitive value
-    }
-    var set = gdcc in o, cache = o[gdcc], result;
-    if (set && typeof cache == "function") {
-        return cache();
-    }
-    // else
-    o[gdcc] = function () { return result; }; // overwrite
-    if (o instanceof Array) {
-        result = [];
-        for (var i = 0; i < o.length; i++) {
-            result[i] = clone(o[i]);
-        }
-    }
-    else {
-        result = {};
-        for (var prop in o)
-            if (prop != gdcc)
-                result[prop] = clone(o[prop]);
-            else if (set)
-                result[prop] = clone(cache);
-    }
-    if (set) {
-        o[gdcc] = cache; // reset
-    }
-    else {
-        delete o[gdcc]; // unset again
-    }
-    return result;
-}
 var Display = (function () {
     function Display(width, height) {
         // create svg drawing
@@ -417,9 +428,7 @@ var Display = (function () {
 var rel = new Relation(["a", "b"], [1, 2], [[true, false], [false, false]]);
 var display = new Display(300, 300);
 console.log("r = ", rel);
-var relStyle = Style.builder()
-    .backgroundColor("#00f")
-    .build();
+var relStyle = Style.DEFAULT.with({ backgroundColor: "#00f" });
 //display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
 var relRect = new Rect(new Point(0, 0), display.rect.width / 3, display.rect.height / 3);
 rel.draw(display, relRect, relStyle);
