@@ -1,3 +1,8 @@
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+};
 /**
  * Deep copy an object (make copies of all its object properties, sub-properties, etc.)
  * An improved version of http://keithdevens.com/weblog/archive/2007/Jun/07/javascript.clone
@@ -251,8 +256,9 @@ var DEBUG_STYLE = Style.DEFAULT.with({
     borderColor: "#f00",
 });
 /**
- *  Coords in pixels
- *
+ *  Logical coords are in pixels.
+ * <strong> Note </strong> in SVG coords start from upper left corner
+ * and height goes downward, but we're more old-school:
  * <pre>
  *  -1, 1   0, 1	1, 1
  *  -1, 0   0, 0    1, 0
@@ -292,7 +298,7 @@ var Shape = (function () {
         if (centre === void 0) { centre = Point.of(); }
         this.id = id;
         this.centre = centre;
-        this.check();
+        // this.check(); nope, will call the inherited ones...
     }
     Shape.prototype.check = function () {
         checkNotEmpty(this.id);
@@ -304,6 +310,11 @@ var Shape = (function () {
     };
     Shape.prototype.with = function (properties) {
         return wither(properties, this);
+    };
+    Shape.prototype.draw = function (display) {
+        // check already existing
+        // if so delete and warn ?        
+        console.log("Empty shape, drawing nothing to display ", display);
     };
     Shape.DEFAULT = new Shape();
     return Shape;
@@ -394,7 +405,7 @@ var Relation = (function () {
      * </pre>
      *
      *
-     * Draws domain within given rect. Returns the ids of the created circles.
+     * Draws domain within given rect. Returns the shapes of the created circles.
      */
     Relation.prototype.drawDomain = function (display, domain, rect, style) {
         checkNotNull(domain);
@@ -431,8 +442,39 @@ var Relation = (function () {
     Relation.DEFAULT = new Relation();
     return Relation;
 })();
+var CircleShape = (function (_super) {
+    __extends(CircleShape, _super);
+    function CircleShape(radius, text) {
+        if (radius === void 0) { radius = 4; }
+        if (text === void 0) { text = '☺'; }
+        _super.call(this);
+        this.radius = radius;
+        this.text = text;
+        console.log("this.radius 1 = ", this.radius);
+        this.check();
+    }
+    CircleShape.prototype.check = function () {
+        console.log("this.radius 2 = ", this.radius);
+        _super.prototype.check.call(this);
+        console.log("this.radius 3 = ", this.radius);
+        checkNotNull(this.radius);
+        checkNotEmpty(this.text);
+        return this;
+    };
+    CircleShape.of = function (properties) {
+        return of(CircleShape.DEFAULT, properties);
+    };
+    CircleShape.prototype.with = function (properties) {
+        return wither(properties, this);
+    };
+    CircleShape.prototype.draw = function (display) {
+        throw new Error("TODO implement me!");
+    };
+    CircleShape.DEFAULT = new CircleShape();
+    return CircleShape;
+})(Shape);
 /**
- *  Coords in pixels, see {@link Point}
+ *  A logical rectangle, with coords expressed in pixels (see {@link Point} )
  */
 var Rect = (function () {
     function Rect(centre, width, height) {
@@ -572,20 +614,6 @@ var Display = (function () {
     };
     return Display;
 })();
-var beliefs = ['☮', '☯', '☭'];
-var stars = ['★', '✩'];
-var hands = ['☜', '☝', '☞', '☟'];
-var dangers = ['☢', '☣', '⚡', '☠'];
-var smilies = ['☺', '☹'];
-var weather3 = ['☼', '☁', '☂'];
-var weather4 = ['☼', '☁', '☂', '❄'];
-var rel = Relation.of({
-    domain: weather3,
-    codomain: smilies,
-    mappings: [[true, true],
-        [false, false],
-        [true, false]]
-});
 var debug;
 (function (debug) {
     debug.drawCenteredRect = function (display) {
@@ -615,13 +643,27 @@ var debug;
         }
     };
 })(debug || (debug = {}));
+var beliefs = ['☮', '☯', '☭'];
+var stars = ['★', '✩'];
+var hands = ['☜', '☝', '☞', '☟'];
+var dangers = ['☢', '☣', '⚡', '☠'];
+var smilies = ['☺', '☹'];
+var weather3 = ['☼', '☁', '☂'];
+var weather4 = ['☼', '☁', '☂', '❄'];
+var rel = Relation.of({
+    domain: weather3,
+    codomain: smilies,
+    mappings: [[true, true],
+        [false, false],
+        [false, true]]
+});
 window.addEventListener("load", function () {
     var display = new Display(300, 300);
     var relStyle = Style.DEFAULT.with({ backgroundColor: "#00f" });
     //display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
     var relRect = new Rect(display.rect.centre, display.rect.width / 1.5, display.rect.height / 1.5);
     rel.draw(display, relRect, relStyle);
-    debug.drawCenteredRect(display);
-    debug.drawCoords(display);
+    // debug.drawCenteredRect(display);
+    // debug.drawCoords(display);
 });
 //# sourceMappingURL=index.js.map

@@ -197,7 +197,7 @@ interface MyImmFields {
 /**
  * Example of immutable class. 
  */
-class MyImm implements Immutable<MyImmFields>{
+class MyImm implements Immutable<MyImmFields>, MyImmFields {
 
     private static DEFAULT = new MyImm();    
 
@@ -273,15 +273,15 @@ let checkColor = (colorString: string) => {
     }
 }
 
-interface StyleParams {
+interface StyleFields {
 
     color?: string;
     backgroundColor?: string;
     borderColor?: string;
-    fontSize?: string;
+    fontSize?: number;
 }
 
-class Style implements Immutable<StyleParams>{
+class Style implements Immutable<StyleFields>, StyleFields {
 
     public static DEFAULT = new Style();
 
@@ -300,11 +300,11 @@ class Style implements Immutable<StyleParams>{
         return this;
     }
 
-    static of(properties?: StyleParams): Style {
+    static of(properties?: StyleFields): Style {
         return of(Style.DEFAULT, properties);
     }
 
-    with(properties?: StyleParams) : this {
+    with(properties?: StyleFields) : this {
         return wither(properties, this);
     }
 
@@ -319,12 +319,6 @@ let DEBUG_STYLE = Style.DEFAULT.with({
 });
 
 
-interface ShapeFields {
-    id?: string;
-    centre?: Point;
-}
-
-
 
 
 interface PointFields {
@@ -333,8 +327,9 @@ interface PointFields {
 }
 
 /**
- *  Coords in pixels
- * 
+ *  Logical coords are in pixels.
+ * <strong> Note </strong> in SVG coords start from upper left corner 
+ * and height goes downward, but we're more old-school:
  * <pre>
  *  -1, 1   0, 1	1, 1
  *  -1, 0   0, 0    1, 0
@@ -343,7 +338,7 @@ interface PointFields {
  * </pre>
  * 
  */
-class Point implements Immutable<PointFields> {
+class Point implements Immutable<PointFields>, PointFields {
     private static DEFAULT = new Point();
 
     constructor(public x = 0.0,
@@ -367,20 +362,29 @@ class Point implements Immutable<PointFields> {
 
 }
 
+
+
+interface ShapeFields {
+    id?: string;
+    centre?: Point;
+}
+
+
 /**
  * The bridge between logical view and physical view determined by the id
  */
-class Shape implements Immutable<ShapeFields> {
+class Shape implements Immutable<ShapeFields> , ShapeFields {
 
-    private static DEFAULT = new Shape();
+    static DEFAULT = new Shape();
+    
 
     constructor(
         public id = "relmath-default-id",
-        public centre = Point.of()) {
-        this.check();
+        public centre = Point.of()) {        
+        // this.check(); nope, will call the inherited ones...
     }
 
-    check() {
+    check() {        
         checkNotEmpty(this.id);
         checkNotNull(this.centre);
         return this;
@@ -392,6 +396,12 @@ class Shape implements Immutable<ShapeFields> {
 
     with(properties?: ShapeFields) : this {
         return wither(properties, this);
+    }
+    
+    draw(display : Display){
+        // check already existing
+        // if so delete and warn ?        
+        console.log("Empty shape, drawing nothing to display ", display);
     }
 }
 
@@ -419,7 +429,7 @@ interface RelationFields {
  * 
  * </pre>
  */
-class Relation implements Immutable<RelationFields>{
+class Relation implements Immutable<RelationFields>, RelationFields {
 
     private static DEFAULT = new Relation();
 
@@ -512,7 +522,7 @@ class Relation implements Immutable<RelationFields>{
 	 * </pre>
 	 * 
 	 * 
-	 * Draws domain within given rect. Returns the ids of the created circles.
+	 * Draws domain within given rect. Returns the shapes of the created circles.
 	 */
     drawDomain(display: Display, domain: Object[], rect: Rect, style?: Style): Shape[] {
         checkNotNull(domain);
@@ -557,6 +567,47 @@ class Relation implements Immutable<RelationFields>{
 }
 
 
+
+interface CircleShapeFields extends ShapeFields {
+    radius? : number;
+    text? : string;
+}
+
+
+class CircleShape extends Shape implements Immutable<CircleShapeFields>, CircleShapeFields {
+    
+    static DEFAULT = new CircleShape();
+    
+    constructor(public radius = 4,
+                public text = '☺'){
+        super();
+        console.log("this.radius 1 = ", this.radius);
+        this.check();
+    }    
+    
+    check(){
+       console.log("this.radius 2 = ", this.radius);
+       super.check(); 
+       console.log("this.radius 3 = ", this.radius);
+       checkNotNull(this.radius);
+       checkNotEmpty(this.text);
+       return this;
+    }
+    
+    static of(properties?: CircleShapeFields) {
+        return of(CircleShape.DEFAULT, properties);
+    }
+
+    with(properties?: RectFields) : this {
+        return wither(properties, this);
+    }
+    
+    draw(display : Display){
+        throw new Error("TODO implement me!");
+    }
+} 
+
+
 interface RectFields {
 	/**
 	 * Lower left corner (as it should be !!) 
@@ -571,9 +622,9 @@ interface RectFields {
 }
 
 /**
- *  Coords in pixels, see {@link Point}
+ *  A logical rectangle, with coords expressed in pixels (see {@link Point} )
  */
-class Rect implements Immutable<RectFields> {
+class Rect implements Immutable<RectFields>, RectFields {
 
     private static DEFAULT = new Rect();
 
@@ -754,26 +805,6 @@ class Display {
 
 }
 
-let beliefs = ['☮', '☯', '☭']
-
-let stars = ['★', '✩'];
-
-let hands = ['☜', '☝', '☞', '☟'];
-
-let dangers = ['☢', '☣', '⚡', '☠'];
-
-let smilies = ['☺', '☹'];
-
-let weather3 = ['☼', '☁', '☂']
-let weather4 = ['☼', '☁', '☂', '❄']
-
-let rel = Relation.of({
-    domain: weather3,
-    codomain: smilies,
-    mappings: [[true, true],
-        [false, false],
-        [true, false]]
-});
 
 
 module debug {
@@ -809,6 +840,29 @@ module debug {
     }    
 }
 
+
+
+let beliefs = ['☮', '☯', '☭']
+
+let stars = ['★', '✩'];
+
+let hands = ['☜', '☝', '☞', '☟'];
+
+let dangers = ['☢', '☣', '⚡', '☠'];
+
+let smilies = ['☺', '☹'];
+
+let weather3 = ['☼', '☁', '☂']
+let weather4 = ['☼', '☁', '☂', '❄']
+
+let rel = Relation.of({
+    domain: weather3,
+    codomain: smilies,
+    mappings: [[true, true],
+        [false, false],
+        [false, true]]
+});
+
 window.addEventListener("load", function() {
     let display = new Display(300, 300);
 
@@ -821,7 +875,7 @@ window.addEventListener("load", function() {
 
     rel.draw(display, relRect, relStyle);
 
-    debug.drawCenteredRect(display);
+    // debug.drawCenteredRect(display);
     
-    debug.drawCoords(display);
+    // debug.drawCoords(display);
 });
