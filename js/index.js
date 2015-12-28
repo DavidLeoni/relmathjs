@@ -256,19 +256,34 @@ var DEBUG_STYLE = Style.DEFAULT.with({
  */
 var Relation = (function () {
     function Relation(domain, codomain, mappings) {
-        checkNotNull(domain);
-        checkNotNull(codomain);
-        checkNotNull(mappings);
-        checkArgument(mappings.length === domain.length, "Mappings should have " + domain.length + " rows, "
-            + " but has instead length " + mappings.length);
-        mappings.forEach(function (arr, i) {
-            checkArgument(mappings[i].length === codomain.length, "Mappings row at " + i + " has length "
-                + mappings[i].length + " but should have length " + codomain.length);
-        });
+        if (domain === void 0) { domain = []; }
+        if (codomain === void 0) { codomain = []; }
+        if (mappings === void 0) { mappings = []; }
         this.domain = domain;
         this.codomain = codomain;
         this.mappings = mappings;
+        this.check();
     }
+    Relation.prototype.check = function () {
+        var _this = this;
+        checkNotNull(this.domain);
+        checkNotNull(this.codomain);
+        checkNotNull(this.mappings);
+        checkArgument(this.mappings.length === this.domain.length, "Mappings should have "
+            + this.domain.length + " rows, "
+            + " but has instead length " + this.mappings.length);
+        this.mappings.forEach(function (arr, i) {
+            checkArgument(_this.mappings[i].length === _this.codomain.length, "Mappings row at " + i + " has length "
+                + _this.mappings[i].length + " but should have length " + _this.codomain.length);
+        });
+        return this;
+    };
+    Relation.of = function (properties) {
+        return of(Relation.DEFAULT, properties);
+    };
+    Relation.prototype.with = function (properties) {
+        return wither(properties, this);
+    };
     Relation.prototype.draw = function (display, rect, style) {
         display.drawRect(rect, DEBUG_STYLE);
         this.drawDomain(display, this.domain, rect, style);
@@ -305,6 +320,7 @@ var Relation = (function () {
             }
         }
     };
+    Relation.DEFAULT = new Relation();
     return Relation;
 })();
 /**
@@ -320,11 +336,24 @@ var Relation = (function () {
  */
 var Point = (function () {
     function Point(x, y) {
-        checkNotNull(x);
-        checkNotNull(y);
+        if (x === void 0) { x = 0.0; }
+        if (y === void 0) { y = 0.0; }
         this.x = x;
         this.y = y;
+        this.check();
     }
+    Point.prototype.check = function () {
+        checkNotNull(this.x);
+        checkNotNull(this.y);
+        return this;
+    };
+    Point.of = function (properties) {
+        return of(Point.DEFAULT, properties);
+    };
+    Point.prototype.with = function (properties) {
+        return wither(properties, this);
+    };
+    Point.DEFAULT = new Point();
     return Point;
 })();
 /**
@@ -332,13 +361,27 @@ var Point = (function () {
  */
 var Rect = (function () {
     function Rect(origin, width, height) {
-        checkNotNull(origin);
-        checkNotNull(width);
-        checkNotNull(height);
+        if (origin === void 0) { origin = Point.of(); }
+        if (width === void 0) { width = 0; }
+        if (height === void 0) { height = 0; }
         this.origin = origin;
         this.width = width;
         this.height = height;
+        this.check();
     }
+    Rect.prototype.check = function () {
+        checkNotNull(this.origin);
+        checkNotNull(this.width);
+        checkNotNull(this.height);
+        return this;
+    };
+    Rect.of = function (properties) {
+        return of(Rect.DEFAULT, properties);
+    };
+    Rect.prototype.with = function (properties) {
+        return wither(properties, this);
+    };
+    Rect.DEFAULT = new Rect();
     return Rect;
 })();
 var Display = (function () {

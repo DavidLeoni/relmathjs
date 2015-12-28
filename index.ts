@@ -133,30 +133,15 @@ let checkNotEmpty = (arr: Array<any>, msg?: string): any => {
     }
 }
 
-/*
-class Handler {
-    msgs:string[];  
-    constructor(msgs:string[]) {
-        this.msgs = msgs;
-    }
-    greet() {
-        this.msgs.forEach(x=>alert(x));
-    }
-}
 
-function createHandler(handler: typeof ObjectConstructor, params: string[]) {
-    var obj = new handler(params);
-    return obj;
-}
-
-var h = createHandler(Handler, ['hi', 'bye']);
-h.greet();
-*/
 /**
- * <P> the fields of the class. P should be an interface with all optional types. 
+ * <P> the fields of the class. P should be an interface with all optional fields. 
  */
 interface Immutable<P> {
 
+    /**
+     * @throws Error if check fails.
+     */
     check(): this;
 	
     /**
@@ -235,7 +220,7 @@ class MyImm implements Immutable<MyImmFields>{
         return this;
     }
 
-    static of(properties?: MyImmFields): MyImm {
+    static of(properties?: MyImmFields){
         return of(MyImm.DEFAULT, properties);
     }
 
@@ -327,6 +312,11 @@ let DEBUG_STYLE = Style.DEFAULT.with({
 });
     
 
+interface RelationFields {
+     domain?: Object[],      
+     codomain?: Object[],      
+     mappings?: boolean[][]
+}
 
 /**
  * <pre>
@@ -339,29 +329,41 @@ let DEBUG_STYLE = Style.DEFAULT.with({
  * 
  * </pre>
  */
-class Relation {
-    domain: Object[];
-    codomain: Object[];
-    mappings: boolean[][];
+class Relation implements Immutable<RelationFields>{
 
-    constructor(domain: Object[], codomain: Object[], mappings: boolean[][]) {
-        checkNotNull(domain);
-        checkNotNull(codomain);
-        checkNotNull(mappings);
+    private static DEFAULT = new Relation();
+    
+    constructor(public domain: Object[] = [], 
+                public codomain: Object[] = [], 
+                public mappings: boolean[][] = []) {
+        this.check();
+    }
+         
+    check(){
+        checkNotNull(this.domain);
+        checkNotNull(this.codomain);
+        checkNotNull(this.mappings);
 
-        checkArgument(mappings.length === domain.length, "Mappings should have " + domain.length + " rows, "
-            + " but has instead length " + mappings.length);
+        checkArgument(this.mappings.length === this.domain.length, "Mappings should have " 
+        + this.domain.length + " rows, "
+            + " but has instead length " + this.mappings.length);
 
-        mappings.forEach((arr, i) => {
-            checkArgument(mappings[i].length === codomain.length, "Mappings row at " + i + " has length "
-                + mappings[i].length + " but should have length " + codomain.length);
+        this.mappings.forEach((arr, i) => {
+            checkArgument(this.mappings[i].length === this.codomain.length, "Mappings row at " + i + " has length "
+                + this.mappings[i].length + " but should have length " + this.codomain.length);
         });
 
-        this.domain = domain;
-        this.codomain = codomain;
-        this.mappings = mappings;
-
+        return this;
     }
+    
+    static of(properties?: RelationFields) {
+        return of(Relation.DEFAULT, properties);
+    }
+
+    with(properties?: RelationFields) {
+        return wither(properties, this);
+    }
+    
 
     draw(display: Display, rect: Rect, style?: Style) {
         display.drawRect(rect, DEBUG_STYLE);
@@ -405,6 +407,11 @@ class Relation {
 }
 
 
+interface PointFields {
+    x?:number;
+    y?:number;    
+}
+
 /**
  *  Coords in pixels
  * 
@@ -416,41 +423,69 @@ class Relation {
  * </pre>
  * 
  */
-class Point {
-    x: number;
-    y: number;
+class Point implements Immutable<PointFields> {
+    private static DEFAULT = new Point(); 
 
-    constructor(x: number, y: number) {
-        checkNotNull(x);
-        checkNotNull(y);
-        this.x = x;
-        this.y = y;
+    constructor(public x = 0.0,
+                public y = 0.0) {
+        this.check();        
+    }
+    
+    check(){
+        checkNotNull(this.x);
+        checkNotNull(this.y);
+        return this;
+    }
+    
+    static of(properties?: PointFields) {
+        return of(Point.DEFAULT, properties);
     }
 
+    with(properties?: PointFields) {
+        return wither(properties, this);
+    }
+
+}
+
+interface RectFields {
+	/**
+	 * Lower left corner (as it should be !!) 
+	 */
+    origin?: Point;
+    width?: number;
+	/**
+	 * Height from bottom to top (as it should be!)
+	 */
+    height?: number;
+    
 }
 
 /**
  *  Coords in pixels, see {@link Point}
  */
-class Rect {
-	/**
-	 * Lower left corner (as it should be !!) 
-	 */
-    origin: Point;
-    width: number;
-	/**
-	 * Height from bottom to top (as it should be!)
-	 */
-    height: number;
+class Rect implements Immutable<RectFields> {
 
-    constructor(origin: Point, width: number, height: number) {
-        checkNotNull(origin);
-        checkNotNull(width);
-        checkNotNull(height);
+    private static DEFAULT = new Rect(); 
 
-        this.origin = origin;
-        this.width = width;
-        this.height = height;
+    constructor(public origin = Point.of(),
+                public width = 0,
+                public height = 0) {
+        this.check();        
+    }
+    
+    check(){
+        checkNotNull(this.origin);
+        checkNotNull(this.width);
+        checkNotNull(this.height);
+        return this;
+    }
+    
+    static of(properties?: RectFields) {
+        return of(Rect.DEFAULT, properties);
+    }
+
+    with(properties?: MyImmFields) {
+        return wither(properties, this);
     }
 }
 
