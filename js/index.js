@@ -1,8 +1,3 @@
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
 /**
  * Deep copy an object (make copies of all its object properties, sub-properties, etc.)
  * An improved version of http://keithdevens.com/weblog/archive/2007/Jun/07/javascript.clone
@@ -12,7 +7,7 @@ var __extends = (this && this.__extends) || function (d, b) {
  *
  * (dav: solution copied from here: http://stackoverflow.com/a/13333781)
  */
-function clone(src, /* INTERNAL */ _visited) {
+function deepClone(src, /* INTERNAL */ _visited) {
     if (src == null || typeof (src) !== 'object') {
         return src;
     }
@@ -43,7 +38,7 @@ function clone(src, /* INTERNAL */ _visited) {
         ret = src.slice();
         var i = ret.length;
         while (i--) {
-            ret[i] = clone(ret[i], _visited);
+            ret[i] = deepClone(ret[i], _visited);
         }
         return ret;
     }
@@ -69,7 +64,7 @@ function clone(src, /* INTERNAL */ _visited) {
     for (var key in src) {
         //Note: this does NOT preserve ES5 property attributes like 'writable', 'enumerable', etc.
         //For an example of how this could be modified to do so, see the singleMixin() function
-        ret[key] = clone(src[key], _visited);
+        ret[key] = deepClone(src[key], _visited);
     }
     return ret;
 }
@@ -119,64 +114,78 @@ var checkNotEmpty = function (arr, msg) {
         throw new Error(newMsg);
     }
 };
-/*
-class Handler {
-    msgs:string[];
-    constructor(msgs:string[]) {
-        this.msgs = msgs;
-    }
-    greet() {
-        this.msgs.forEach(x=>alert(x));
-    }
-}
-
-function createHandler(handler: typeof ObjectConstructor, params: string[]) {
-    var obj = new handler(params);
-    return obj;
-}
-
-var h = createHandler(Handler, ['hi', 'bye']);
-h.greet();
-*/
 /**
- * <P> the fields of the class. P should be an interface with all optional types.
+ * Returns a new shallow copy of obj merging inside it the provided fields.
  */
-var Immutable = (function () {
-    function Immutable() {
+var wither = function (properties, obj) {
+    checkNotNull(properties);
+    if (Object.keys(properties).length === 0) {
+        return obj;
     }
-    Immutable.prototype.check = function () {
-        return this;
-    };
-    Immutable.getInstance = function () {
-        return new this;
-    };
-    /**
-     * Returns a shallow clone merging in the result the provided fields.
-     */
-    Immutable.prototype.with = function (fields) {
-        var ret = clone(this);
-        for (var _i = 0, _a = Object.keys(fields); _i < _a.length; _i++) {
+    else {
+        var ret = deepClone(obj); // todo should be shallow ...
+        for (var _i = 0, _a = Object.keys(properties); _i < _a.length; _i++) {
             var key = _a[_i];
-            ret[key] = fields[key];
+            ret[key] = properties[key];
         }
         return ret.check();
-    };
-    Immutable.trial = function () {
-        return new this;
-    };
-    return Immutable;
-})();
-var MyClass = (function (_super) {
-    __extends(MyClass, _super);
-    function MyClass() {
-        _super.apply(this, arguments);
     }
-    MyClass.prototype.f = function () {
+};
+/**
+ *
+ */
+function of(empty, properties) {
+    if (properties) {
+        return empty.with(properties);
+    }
+    else {
+        return empty;
+    }
+}
+/**
+ * Example of immutable class.
+ */
+var MyImm = (function () {
+    /**
+     * Shows we can have a get property if we want to
+     */
+    /*    get x() {
+            return this._x;
+        }
+    
+        set x(v : string) {
+            this._x = v;
+        }
+    */
+    /** Avoid calling this directly, use {@link of} method instead.
+     * (Constructor can't be private in Typescript)
+     */
+    function MyImm(_x, y) {
+        if (_x === void 0) { _x = "a"; }
+        if (y === void 0) { y = 3; }
+        this._x = _x;
+        this.y = y;
+        this.check();
+    }
+    MyImm.prototype.check = function () {
+        checkArgument(this.y > 2);
+        return this;
+    };
+    MyImm.of = function (properties) {
+        return of(MyImm.DEFAULT, properties);
+    };
+    MyImm.prototype.with = function (properties) {
+        return wither(properties, this);
+    };
+    MyImm.prototype.trial = function () {
         //return this.check();
         return this.with({ x: "a" });
     };
-    return MyClass;
-})(Immutable);
+    ;
+    MyImm.DEFAULT = new MyImm();
+    return MyImm;
+})();
+console.log("My immutable class = ", MyImm.of({ y: 3 }).with({ x: "3" }));
 var DEFAULT_RADIUS = 30;
 var toText = function (obj) {
     if (typeof obj === "string"
@@ -202,24 +211,34 @@ var checkColor = function (colorString) {
         }
     }
 };
-var Style = (function (_super) {
-    __extends(Style, _super);
-    function Style() {
-        _super.apply(this, arguments);
-        this.color = "#000";
-        this.backgroundColor = "#fff";
-        this.borderColor = "#000";
-        this.fontSize = 10;
+var Style = (function () {
+    function Style(color, backgroundColor, borderColor, fontSize) {
+        if (color === void 0) { color = "#000"; }
+        if (backgroundColor === void 0) { backgroundColor = "#fff"; }
+        if (borderColor === void 0) { borderColor = "#000"; }
+        if (fontSize === void 0) { fontSize = 10; }
+        this.color = color;
+        this.backgroundColor = backgroundColor;
+        this.borderColor = borderColor;
+        this.fontSize = fontSize;
+        this.check();
     }
-    Style.of = function () {
-        return Style.DEFAULT;
+    Style.prototype.check = function () {
+        checkColor(this.color);
+        checkColor(this.backgroundColor);
+        checkColor(this.borderColor);
+        checkArgument(this.fontSize && this.fontSize > 0);
+        return this;
     };
-    Style.prototype.f = function () {
-        this.with({ color: "a" });
+    Style.of = function (properties) {
+        return of(Style.DEFAULT, properties);
+    };
+    Style.prototype.with = function (properties) {
+        return wither(properties, this);
     };
     Style.DEFAULT = new Style();
     return Style;
-})(Immutable);
+})();
 var DEBUG_STYLE = Style.DEFAULT.with({
     backgroundColor: "#ecc",
     color: "#f00",

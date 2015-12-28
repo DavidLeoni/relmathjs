@@ -9,15 +9,15 @@
  * It also borrows some code from http://stackoverflow.com/a/11621004/560114
  * 
  * (dav: solution copied from here: http://stackoverflow.com/a/13333781)
- */  
-function clone(src, /* INTERNAL */ _visited?) {
-    if(src == null || typeof(src) !== 'object'){
+ */
+function deepClone(src, /* INTERNAL */ _visited?) {
+    if (src == null || typeof (src) !== 'object') {
         return src;
     }
 
     // Initialize the visited objects array if needed
     // This is used to detect cyclic references
-    if (_visited == undefined){
+    if (_visited == undefined) {
         _visited = [];
     }
     // Otherwise, ensure src has not already been visited
@@ -35,7 +35,7 @@ function clone(src, /* INTERNAL */ _visited?) {
     _visited.push(src);
 
     //Honor native/custom clone methods
-    if(typeof src.clone == 'function'){
+    if (typeof src.clone == 'function') {
         return src.clone(true);
     }
 
@@ -45,37 +45,37 @@ function clone(src, /* INTERNAL */ _visited?) {
         //[].slice(0) would soft clone
         ret = src.slice();
         var i = ret.length;
-        while (i--){
-            ret[i] = clone(ret[i], _visited);
+        while (i--) {
+            ret[i] = deepClone(ret[i], _visited);
         }
         return ret;
     }
     //Date
-    if (src instanceof Date){
+    if (src instanceof Date) {
         return new Date(src.getTime());
     }
     //RegExp
-    if(src instanceof RegExp){
+    if (src instanceof RegExp) {
         return new RegExp(src);
     }
     //DOM Elements
-    if(src.nodeType && typeof src.cloneNode == 'function'){
+    if (src.nodeType && typeof src.cloneNode == 'function') {
         return src.cloneNode(true);
     }
 
     //If we've reached here, we have a regular object, array, or function
 
     //make sure the returned object has the same prototype as the original
-    var proto = (Object.getPrototypeOf ? Object.getPrototypeOf(src): src.__proto__);
+    var proto = (Object.getPrototypeOf ? Object.getPrototypeOf(src) : src.__proto__);
     if (!proto) {
         proto = src.constructor.prototype; //this line would probably only be reached by very old browsers 
     }
     var ret = Object.create(proto);
 
-    for(var key in src){
+    for (var key in src) {
         //Note: this does NOT preserve ES5 property attributes like 'writable', 'enumerable', etc.
         //For an example of how this could be modified to do so, see the singleMixin() function
-        ret[key] = clone(src[key], _visited);
+        ret[key] = deepClone(src[key], _visited);
     }
     return ret;
 }
@@ -155,57 +155,108 @@ h.greet();
 /**
  * <P> the fields of the class. P should be an interface with all optional types. 
  */
- class Immutable<P> {
+interface Immutable<P> {
 
-    protected check() {
-        return this;
-    }
-    
-    static getInstance() {
-     return new this;
-    }
+    check(): this;
 	
     /**
      * Returns a shallow clone merging in the result the provided fields.
      */
-    public with(fields: P): this {
-        
-        let ret = clone(this);
-        for (let key of Object.keys(fields)) {
-            ret[key] = fields[key];
+    "with"(fields: P): this;
+
+}
+
+
+/**
+ * Returns a new shallow copy of obj merging inside it the provided fields.
+ */
+let wither = <P, C extends Immutable<{}>>(properties: P, obj: C): C => {
+    checkNotNull(properties);
+    if (Object.keys(properties).length === 0) {
+        return obj;
+    } else {
+        let ret = deepClone(obj); // todo should be shallow ...
+        for (let key of Object.keys(properties)) {
+            ret[key] = properties[key];
         }
         return ret.check();
-    }
-
-    public static trial(){
-        return new this;
     }
 }
 
 /**
+ * 
+ */
+function of<P, C extends Immutable<{}>>(empty: C, properties?: P): C {
+    if (properties) {
+        return <any>empty.with(properties);
+    } else {
+        return empty;
+    }
+
+}
+
+
+/**
  * Example of parameters
  */
-interface MyClassFields {
+interface MyImmFields {
     x?: string;
-    y? : number;
+    y?: number;
+
 }
 
-class MyClass extends Immutable<MyClassFields> {
+/**
+ * Example of immutable class. 
+ */
+class MyImm implements Immutable<MyImmFields>{
 
-    x: string;
-    y: number;
+    private static DEFAULT = new MyImm();    
 
-    f() {	        
+    /**
+     * Shows we can have a get property if we want to
+     */
+/*    get x() {
+        return this._x;
+    }
+
+    set x(v : string) {
+        this._x = v;
+    }
+*/
+    /** Avoid calling this directly, use {@link of} method instead.
+     * (Constructor can't be private in Typescript)
+     */
+    constructor(
+        private _x = "a",
+        public y = 3) {
+            
+        this.check();
+    }
+
+    check() { 
+        checkArgument(this.y > 2);
+        return this;
+    }
+
+    static of(properties?: MyImmFields): MyImm {
+        return of(MyImm.DEFAULT, properties);
+    }
+
+    with(properties?: MyImmFields) {
+        return wither(properties, this);
+    }
+
+    trial() {	        
         //return this.check();
         return this.with({ x: "a" });
-    }
+    };
+
 }
 
 
+console.log("My immutable class = ", MyImm.of({ y: 3 }).with({ x: "3" }));
+
 let DEFAULT_RADIUS: number = 30;
-
-
-
 
 let toText = (obj: any) => {
     if (typeof obj === "string"
@@ -234,35 +285,48 @@ let checkColor = (colorString: string) => {
 }
 
 interface StyleParams {
-    
-    color? : string;
-    backgroundColor? : string;
-    borderColor? : string;
-    fontSize? : string;          
+
+    color?: string;
+    backgroundColor?: string;
+    borderColor?: string;
+    fontSize?: string;
 }
 
-class Style extends Immutable<StyleParams>{
+class Style implements Immutable<StyleParams>{
 
     public static DEFAULT = new Style();
 
-    color = "#000";
-    backgroundColor = "#fff";
-    borderColor = "#000";
-    fontSize = 10;
-
-    static of(): Style {
-        return Style.DEFAULT;
+    constructor (public color = "#000",
+                 public backgroundColor = "#fff",
+                 public borderColor = "#000",
+                 public fontSize = 10){
+        this.check();                 
     }
     
-    f(){
-        this.with({color:"a"});
+    check(){
+        checkColor(this.color);
+        checkColor(this.backgroundColor);
+        checkColor(this.borderColor);
+        checkArgument(this.fontSize && this.fontSize > 0); 
+        return this;   
     }
+
+    static of(properties?: StyleParams): Style {
+        return of(Style.DEFAULT, properties);
+    }
+
+    with(properties?: StyleParams) {
+        return wither(properties, this);
+    }
+
+
+
 }
 
 let DEBUG_STYLE = Style.DEFAULT.with({
-    backgroundColor :"#ecc",
-    color:"#f00",
-    borderColor: "#f00",    
+    backgroundColor: "#ecc",
+    color: "#f00",
+    borderColor: "#f00",
 });
     
 
@@ -531,7 +595,7 @@ let rel = new Relation(["a", "b"], [1, 2], [[true, false], [false, false]]);
 let display = new Display(300, 300);
 console.log("r = ", rel);
 
-let relStyle = Style.DEFAULT.with({backgroundColor : "#00f"});
+let relStyle = Style.DEFAULT.with({ backgroundColor: "#00f" });
         
 
 //display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
