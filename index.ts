@@ -196,6 +196,7 @@ function of<P, C extends Immutable<{}>>(empty: C, properties?: P): C {
 }
 
 
+
 /**
  * Example of parameters
  */
@@ -215,14 +216,10 @@ class MyImm implements Immutable<MyImmFields>{
     /**
      * Shows we can have a get property if we want to
      */
-/*    get x() {
+    get x() {
         return this._x;
     }
 
-    set x(v : string) {
-        this._x = v;
-    }
-*/
     /** Avoid calling this directly, use {@link of} method instead.
      * (Constructor can't be private in Typescript)
      */

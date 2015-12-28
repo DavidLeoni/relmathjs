@@ -146,17 +146,6 @@ function of(empty, properties) {
  * Example of immutable class.
  */
 var MyImm = (function () {
-    /**
-     * Shows we can have a get property if we want to
-     */
-    /*    get x() {
-            return this._x;
-        }
-    
-        set x(v : string) {
-            this._x = v;
-        }
-    */
     /** Avoid calling this directly, use {@link of} method instead.
      * (Constructor can't be private in Typescript)
      */
@@ -167,6 +156,16 @@ var MyImm = (function () {
         this.y = y;
         this.check();
     }
+    Object.defineProperty(MyImm.prototype, "x", {
+        /**
+         * Shows we can have a get property if we want to
+         */
+        get: function () {
+            return this._x;
+        },
+        enumerable: true,
+        configurable: true
+    });
     MyImm.prototype.check = function () {
         checkArgument(this.y > 2);
         return this;
