@@ -192,7 +192,6 @@ var MyImm = (function () {
     MyImm.DEFAULT = new MyImm();
     return MyImm;
 })();
-console.log("My immutable class = ", MyImm.of({ y: 3 }).with({ x: "3" }));
 var DEFAULT_RADIUS = 30;
 var toText = function (obj) {
     if (typeof obj === "string"
@@ -354,8 +353,8 @@ var Relation = (function () {
     };
     Relation.prototype.draw = function (display, rect, style) {
         display.drawRect(rect, DEBUG_STYLE);
-        var rectDomain = rect.with({ width: rect.width / 2 });
-        console.log("this.domain = ", this.domain);
+        var rectDomain = rect.with({ centre: rect.centre.with({ x: rect.centre.x - rect.width / 3 }),
+            width: rect.width / 2 });
         var styleDomain = style.with({
             backgroundColor: "#fc9",
             color: "#000",
@@ -367,11 +366,10 @@ var Relation = (function () {
         });
         var rectCodomain = rect.with({
             width: rect.width / 2,
-            origin: rect.origin.with({
-                x: rect.origin.x + (rect.width / 2)
+            centre: rect.centre.with({
+                x: rect.centre.x + (rect.width / 3)
             })
         });
-        console.log("this.codomain = ", this.codomain);
         var codomainShapes = this.drawDomain(display, this.codomain, rectCodomain, styleCodomain);
         this.drawMappings(display, domainShapes, codomainShapes, style);
     };
@@ -422,9 +420,9 @@ var Relation = (function () {
     Relation.getCircleCentres = function (n, rect) {
         var ret = [];
         var dy = rect.height / (n + 1);
-        var x = rect.origin.x + (rect.width / 2);
+        var x = rect.centre.x;
         for (var domi = 0; domi < n; domi++) {
-            var y = rect.origin.y + rect.height - (domi + 1) * dy;
+            var y = rect.centre.y + rect.height / 2 - (domi + 1) * dy;
             var center = new Point(x, y);
             ret.push(center);
         }
@@ -437,17 +435,17 @@ var Relation = (function () {
  *  Coords in pixels, see {@link Point}
  */
 var Rect = (function () {
-    function Rect(origin, width, height) {
-        if (origin === void 0) { origin = Point.of(); }
+    function Rect(centre, width, height) {
+        if (centre === void 0) { centre = Point.of(); }
         if (width === void 0) { width = 0; }
         if (height === void 0) { height = 0; }
-        this.origin = origin;
+        this.centre = centre;
         this.width = width;
         this.height = height;
         this.check();
     }
     Rect.prototype.check = function () {
-        checkNotNull(this.origin);
+        checkNotNull(this.centre);
         checkNotNull(this.width);
         checkNotNull(this.height);
         return this;
@@ -466,7 +464,7 @@ var Display = (function () {
         // create svg drawing
         checkArgument(width > 0);
         checkArgument(height > 0);
-        this.rect = new Rect(new Point(-width / 2, -height / 2), width, height);
+        this.rect = new Rect(Point.of(), width, height);
         var mySVG = document.getElementById("drawing");
         mySVG.style.width = this.rect.width.toString() + "px";
         mySVG.style.height = this.rect.height.toString() + "px";
@@ -518,26 +516,6 @@ var Display = (function () {
             leading: 1
         });
     };
-    Display.prototype.drawCoords = function () {
-        var sectors = 6;
-        var dx = this.rect.width / sectors;
-        var dy = this.rect.height / sectors;
-        for (var xi = 0; xi < sectors; xi++) {
-            for (var yi = 0; yi < sectors; yi++) {
-                var x = xi * dx;
-                var y = yi * dy;
-                var t = this.draw
-                    .text(x.toFixed(0) + ',' + y.toFixed(0))
-                    .move(x, y);
-                t.font({
-                    family: 'Source Sans Pro',
-                    size: 10,
-                    anchor: 'middle',
-                    leading: 1
-                });
-            }
-        }
-    };
     Display.prototype.xToViewport = function (x) {
         return x + this.rect.width / 2;
     };
@@ -556,8 +534,6 @@ var Display = (function () {
         checkNotNull(shape2);
         var el1 = SVG.get(shape1.id);
         var el2 = SVG.get(shape2.id);
-        console.log("el1 = ", el1);
-        console.log("el2 = ", el2);
         var links = this.draw.group();
         var markers = this.draw.group();
         el1.connectable({
@@ -585,14 +561,13 @@ var Display = (function () {
         g.circle(radius)
             .fill(style.backgroundColor)
             .stroke(style.borderColor);
-        console.log("group.attr('id')=", nodes.attr("id"));
         return Shape.of({ id: g.attr("id"), centre: centre });
     };
     Display.prototype.drawRect = function (rect, style) {
         if (style === void 0) { style = Style.of(); }
         checkNotNull(rect);
         this.draw.rect(rect.width, rect.height)
-            .move(this.xToViewport(rect.origin.x), this.yToViewport(rect.origin.y) - rect.height)
+            .move(this.xToViewport(rect.centre.x - (rect.width / 2)), this.yToViewport(rect.centre.y) - rect.height / 2)
             .fill(style.backgroundColor);
     };
     return Display;
@@ -611,12 +586,42 @@ var rel = Relation.of({
         [false, false],
         [true, false]]
 });
+var debug;
+(function (debug) {
+    debug.drawCenteredRect = function (display) {
+        display.drawRect(Rect.of({
+            centre: Point.of(),
+            width: 30,
+            height: 100 }));
+    };
+    debug.drawCoords = function (display) {
+        var sectors = 6;
+        var dx = display.rect.width / sectors;
+        var dy = display.rect.height / sectors;
+        for (var xi = 0; xi < sectors; xi++) {
+            for (var yi = 0; yi < sectors; yi++) {
+                var x = xi * dx;
+                var y = yi * dy;
+                var t = display.draw
+                    .text(x.toFixed(0) + ',' + y.toFixed(0))
+                    .move(x, y);
+                t.font({
+                    family: 'Source Sans Pro',
+                    size: 10,
+                    anchor: 'middle',
+                    leading: 1
+                });
+            }
+        }
+    };
+})(debug || (debug = {}));
 window.addEventListener("load", function () {
     var display = new Display(300, 300);
-    console.log("r = ", rel);
     var relStyle = Style.DEFAULT.with({ backgroundColor: "#00f" });
     //display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
-    var relRect = new Rect(display.rect.origin, display.rect.width / 1.5, display.rect.height / 1.5);
+    var relRect = new Rect(display.rect.centre, display.rect.width / 1.5, display.rect.height / 1.5);
     rel.draw(display, relRect, relStyle);
+    debug.drawCenteredRect(display);
+    debug.drawCoords(display);
 });
 //# sourceMappingURL=index.js.map

@@ -243,7 +243,7 @@ class MyImm implements Immutable<MyImmFields>{
 }
 
 
-console.log("My immutable class = ", MyImm.of({ y: 3 }).with({ x: "3" }));
+
 
 let DEFAULT_RADIUS: number = 30;
 
@@ -458,8 +458,9 @@ class Relation implements Immutable<RelationFields>{
     draw(display: Display, rect: Rect, style?: Style) {
         display.drawRect(rect, DEBUG_STYLE);
 
-        let rectDomain = rect.with({ width: rect.width / 2 });
-        console.log("this.domain = ", this.domain);
+        let rectDomain = rect.with({    centre:rect.centre.with({x:rect.centre.x-rect.width/3}),
+                                        width: rect.width / 2 });
+        
         let styleDomain = style.with({
             backgroundColor: "#fc9",
             color: "#000",
@@ -473,11 +474,10 @@ class Relation implements Immutable<RelationFields>{
 
         let rectCodomain = rect.with({
             width: rect.width / 2,
-            origin: rect.origin.with({
-                x: rect.origin.x + (rect.width / 2)
+            centre: rect.centre.with({
+                x: rect.centre.x + (rect.width / 3)
             })
-        });
-        console.log("this.codomain = ", this.codomain);
+        });        
         let codomainShapes = this.drawDomain(display, this.codomain, rectCodomain, styleCodomain);
 
         this.drawMappings(display, domainShapes, codomainShapes, style);
@@ -545,10 +545,10 @@ class Relation implements Immutable<RelationFields>{
     private static getCircleCentres(n: number, rect: Rect): Point[] {
         let ret = [];
         let dy = rect.height / (n + 1);
-        let x = rect.origin.x + (rect.width / 2);
+        let x = rect.centre.x;
 
         for (let domi = 0; domi < n; domi++) {
-            let y = rect.origin.y + rect.height - (domi + 1) * dy;
+            let y = rect.centre.y + rect.height/2 - (domi + 1) * dy;
             let center = new Point(x, y);
             ret.push(center);
         }
@@ -561,7 +561,7 @@ interface RectFields {
 	/**
 	 * Lower left corner (as it should be !!) 
 	 */
-    origin?: Point;
+    centre?: Point;
     width?: number;
 	/**
 	 * Height from bottom to top (as it should be!)
@@ -577,14 +577,14 @@ class Rect implements Immutable<RectFields> {
 
     private static DEFAULT = new Rect();
 
-    constructor(public origin = Point.of(),
+    constructor(public centre = Point.of(),
         public width = 0,
         public height = 0) {
         this.check();
     }
 
     check() {
-        checkNotNull(this.origin);
+        checkNotNull(this.centre);
         checkNotNull(this.width);
         checkNotNull(this.height);
         return this;
@@ -626,27 +626,7 @@ class Display {
             });
     }
 
-    drawCoords() {
-        let sectors = 6
-        let dx = this.rect.width / sectors;
-        let dy = this.rect.height / sectors;
-        for (let xi = 0; xi < sectors; xi++) {
-            for (let yi = 0; yi < sectors; yi++) {
-                let x = xi * dx;
-                let y = yi * dy;
-                let t = this.draw
-                    .text(x.toFixed(0) + ',' + y.toFixed(0))
-                    .move(x, y)
-                t.font({
-                    family: 'Source Sans Pro'
-                    , size: 10
-                    , anchor: 'middle'
-                    , leading: 1
-                })
-
-            }
-        }
-    }
+    
 
     xToViewport(x: number) {
         return x + this.rect.width / 2;
@@ -663,7 +643,7 @@ class Display {
         checkArgument(width > 0);
         checkArgument(height > 0);
 
-        this.rect = new Rect(new Point(-width / 2, -height / 2), width, height);
+        this.rect = new Rect(Point.of(), width, height);
 
         var mySVG = document.getElementById("drawing");
         mySVG.style.width = this.rect.width.toString() + "px";
@@ -725,9 +705,6 @@ class Display {
         var el1 = SVG.get(shape1.id);
         var el2 = SVG.get(shape2.id);
 
-        console.log("el1 = ", el1);
-        console.log("el2 = ", el2);
-
         var links = this.draw.group();
         var markers = this.draw.group();        
     
@@ -761,7 +738,6 @@ class Display {
         g.circle(radius)
             .fill(style.backgroundColor)
             .stroke(style.borderColor);
-        console.log("group.attr('id')=", nodes.attr("id"));
         
         return Shape.of({ id: g.attr("id"), centre: centre });
     }
@@ -769,7 +745,9 @@ class Display {
     drawRect(rect: Rect, style = Style.of()) {
         checkNotNull(rect);
         this.draw.rect(rect.width, rect.height)
-            .move(this.xToViewport(rect.origin.x), this.yToViewport(rect.origin.y) - rect.height)
+            .move(  
+                    this.xToViewport(rect.centre.x - (rect.width / 2)), 
+                    this.yToViewport(rect.centre.y) - rect.height/2)
             .fill(style.backgroundColor)
     }
 
@@ -797,17 +775,53 @@ let rel = Relation.of({
         [true, false]]
 });
 
+
+module debug {
+    export let drawCenteredRect = (display : Display)=>{
+        display.drawRect(Rect.of({  
+                                centre:Point.of(),
+                                width:30, 
+                              height: 100}));
+        
+    }
+
+
+    export let drawCoords = (display : Display )=>{
+        let sectors = 6
+        let dx = display.rect.width / sectors;
+        let dy = display.rect.height / sectors;
+        for (let xi = 0; xi < sectors; xi++) {
+            for (let yi = 0; yi < sectors; yi++) {
+                let x = xi * dx;
+                let y = yi * dy;
+                let t = (<any> display).draw
+                    .text(x.toFixed(0) + ',' + y.toFixed(0))
+                    .move(x, y)
+                t.font({
+                    family: 'Source Sans Pro'
+                    , size: 10
+                    , anchor: 'middle'
+                    , leading: 1
+                })
+
+            }
+        }
+    }    
+}
+
 window.addEventListener("load", function() {
     let display = new Display(300, 300);
-    console.log("r = ", rel);
 
     let relStyle = Style.DEFAULT.with({ backgroundColor: "#00f" });
             
 
     //display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
 
-    let relRect = new Rect(display.rect.origin, display.rect.width / 1.5, display.rect.height / 1.5);
+    let relRect = new Rect(display.rect.centre, display.rect.width / 1.5, display.rect.height / 1.5);
 
     rel.draw(display, relRect, relStyle);
 
+    debug.drawCenteredRect(display);
+    
+    debug.drawCoords(display);
 });
