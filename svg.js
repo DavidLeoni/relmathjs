@@ -1,12 +1,12 @@
 /*!
 * svg.js - A lightweight library for manipulating and animating SVG.
-* @version 2.2.3
+* @version 2.2.4
 * http://www.svgjs.com
 *
 * @copyright Wout Fierens <wout@impinc.co.uk>
 * @license MIT
 *
-* BUILT: Fri Dec 04 2015 17:47:39 GMT+0100 (Mitteleuropäische Zeit)
+* BUILT: Sat Dec 12 2015 00:53:00 GMT+0100 (Mitteleuropäische Zeit)
 */;
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
@@ -1826,8 +1826,8 @@ SVG.RBox = SVG.invent({
     fullBox(this)
 
     // offset by window scroll position, because getBoundingClientRect changes when window is scrolled
-    this.x += window.scrollX
-    this.y += window.scrollY
+    this.x += window.pageXOffset
+    this.y += window.pageYOffset
   }
 
   // define Parent
@@ -2777,7 +2777,7 @@ SVG.Mask = SVG.invent({
       for (var i = this.targets.length - 1; i >= 0; i--)
         if (this.targets[i])
           this.targets[i].unmask()
-      delete this.targets
+      this.targets = []
 
       // remove mask from parent
       this.parent().removeElement(this)
@@ -2836,7 +2836,7 @@ SVG.ClipPath = SVG.invent({
       for (var i = this.targets.length - 1; i >= 0; i--)
         if (this.targets[i])
           this.targets[i].unclip()
-      delete this.targets
+      this.targets = []
 
       // remove clipPath from parent
       this.parent().removeElement(this)

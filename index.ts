@@ -86,7 +86,7 @@ function deepClone(src, /* INTERNAL */ _visited?) {
 let SVG: any;
 
 let checkNotNull = (x: any, msg?: string): any => {
-    if (x || typeof x === "number" || typeof x === "string") {
+    if (x || typeof x === "number" || typeof x === "string" || typeof x === "boolean") {
         return x;
     } else {
         let newMsg = msg ? msg : "Found null/undefined value: ";
@@ -118,18 +118,21 @@ let checkEquals = (x: any, y: any, msg?: string): any => {
 }
 
 /**
- * Checks provided array is not empty
+ * Checks provided array or string is not empty
  */
+let checkNotEmpty = (obj: Array<any> | string, msg?: string): any => {
 
-let checkNotEmpty = (arr: Array<any>, msg?: string): any => {
+    checkNotNull(obj);
 
-    checkNotNull(arr);
-    checkArgument(Array.isArray(arr), "PRovided param is not an Array!");
-    if (arr.length > 0) {
-        return arr;
+    if (typeof obj === "string" || Array.isArray(obj)) {
+        if (obj.length > 0) {
+            return obj;
+        } else {
+            let newMsg = msg ? msg : "Provided parameter is not empty! :" + obj;
+            throw new Error(newMsg);
+        }
     } else {
-        let newMsg = msg ? msg : "Provided parameter is not an array! :" + arr;
-        throw new Error(newMsg);
+        throw new Error("Provided param is not an Array nor a string! " + obj);
     }
 }
 
@@ -211,20 +214,24 @@ class MyImm implements Immutable<MyImmFields>{
     constructor(
         private _x = "a",
         public y = 3) {
-            
+
         this.check();
     }
 
-    check() { 
+    check() {
         checkArgument(this.y > 2);
         return this;
     }
 
-    static of(properties?: MyImmFields){
+    static of(properties?: MyImmFields) {
         return of(MyImm.DEFAULT, properties);
     }
 
-    with(properties?: MyImmFields) {
+    /** 
+     * Note we currently need to manually add the 'this' as strangely 
+     * enough Typescript doesn't infer the type. 
+    */
+    with(properties?: MyImmFields) : this {
         return wither(properties, this);
     }
 
@@ -278,26 +285,26 @@ class Style implements Immutable<StyleParams>{
 
     public static DEFAULT = new Style();
 
-    constructor (public color = "#000",
-                 public backgroundColor = "#fff",
-                 public borderColor = "#000",
-                 public fontSize = 10){
-        this.check();                 
+    constructor(public color = "#000",
+        public backgroundColor = "#fff",
+        public borderColor = "#000",
+        public fontSize = 20) {
+        this.check();
     }
-    
-    check(){
+
+    check() {
         checkColor(this.color);
         checkColor(this.backgroundColor);
         checkColor(this.borderColor);
-        checkArgument(this.fontSize && this.fontSize > 0); 
-        return this;   
+        checkArgument(this.fontSize && this.fontSize > 0);
+        return this;
     }
 
     static of(properties?: StyleParams): Style {
         return of(Style.DEFAULT, properties);
     }
 
-    with(properties?: StyleParams) {
+    with(properties?: StyleParams) : this {
         return wither(properties, this);
     }
 
@@ -310,13 +317,94 @@ let DEBUG_STYLE = Style.DEFAULT.with({
     color: "#f00",
     borderColor: "#f00",
 });
-    
+
+
+interface ShapeFields {
+    id?: string;
+    centre?: Point;
+}
+
+
+
+
+interface PointFields {
+    x?: number;
+    y?: number;
+}
+
+/**
+ *  Coords in pixels
+ * 
+ * <pre>
+ *  -1, 1   0, 1	1, 1
+ *  -1, 0   0, 0    1, 0
+ *  -1,-1   0,-1	1,-1
+ *
+ * </pre>
+ * 
+ */
+class Point implements Immutable<PointFields> {
+    private static DEFAULT = new Point();
+
+    constructor(public x = 0.0,
+        public y = 0.0) {
+        this.check();
+    }
+
+    check() {
+        checkNotNull(this.x);
+        checkNotNull(this.y);
+        return this;
+    }
+
+    static of(properties?: PointFields) {
+        return of(Point.DEFAULT, properties);
+    }
+
+    with(properties?: PointFields) : this {
+        return wither(properties, this);
+    }
+
+}
+
+/**
+ * The bridge between logical view and physical view determined by the id
+ */
+class Shape implements Immutable<ShapeFields> {
+
+    private static DEFAULT = new Shape();
+
+    constructor(
+        public id = "relmath-default-id",
+        public centre = Point.of()) {
+        this.check();
+    }
+
+    check() {
+        checkNotEmpty(this.id);
+        checkNotNull(this.centre);
+        return this;
+    }
+
+    static of(properties?: ShapeFields) {
+        return of(Shape.DEFAULT, properties);
+    }
+
+    with(properties?: ShapeFields) : this {
+        return wither(properties, this);
+    }
+}
+
+
 
 interface RelationFields {
-     domain?: Object[],      
-     codomain?: Object[],      
-     mappings?: boolean[][]
+    domain?: Object[],
+    codomain?: Object[],
+    mappings?: boolean[][]
 }
+
+
+
 
 /**
  * <pre>
@@ -332,42 +420,82 @@ interface RelationFields {
 class Relation implements Immutable<RelationFields>{
 
     private static DEFAULT = new Relation();
-    
-    constructor(public domain: Object[] = [], 
-                public codomain: Object[] = [], 
-                public mappings: boolean[][] = []) {
+
+    constructor(public domain: Object[] = [],
+        public codomain: Object[] = [],
+        public mappings: boolean[][] = []) {
         this.check();
     }
-         
-    check(){
+
+    check() {
         checkNotNull(this.domain);
         checkNotNull(this.codomain);
         checkNotNull(this.mappings);
 
-        checkArgument(this.mappings.length === this.domain.length, "Mappings should have " 
-        + this.domain.length + " rows, "
+        checkArgument(this.mappings.length === this.domain.length, "Relation mappings should have "
+            + this.domain.length + " rows, "
             + " but has instead length " + this.mappings.length);
 
         this.mappings.forEach((arr, i) => {
-            checkArgument(this.mappings[i].length === this.codomain.length, "Mappings row at " + i + " has length "
+            checkArgument(this.mappings[i].length === this.codomain.length, "Relation mapping row at " + i + " has length "
                 + this.mappings[i].length + " but should have length " + this.codomain.length);
         });
 
         return this;
     }
-    
+
     static of(properties?: RelationFields) {
         return of(Relation.DEFAULT, properties);
     }
 
-    with(properties?: RelationFields) {
+    with(properties?: RelationFields) : this {
         return wither(properties, this);
     }
-    
+
 
     draw(display: Display, rect: Rect, style?: Style) {
         display.drawRect(rect, DEBUG_STYLE);
-        this.drawDomain(display, this.domain, rect, style);
+
+        let rectDomain = rect.with({ width: rect.width / 2 });
+        console.log("this.domain = ", this.domain);
+        let styleDomain = style.with({
+            backgroundColor: "#fc9",
+            color: "#000",
+            borderColor: "#000"
+        });
+        let domainShapes = this.drawDomain(display, this.domain, rectDomain, styleDomain);
+
+        let styleCodomain = styleDomain.with({
+            backgroundColor: "#9cf"
+        });
+
+        let rectCodomain = rect.with({
+            width: rect.width / 2,
+            origin: rect.origin.with({
+                x: rect.origin.x + (rect.width / 2)
+            })
+        });
+        console.log("this.codomain = ", this.codomain);
+        let codomainShapes = this.drawDomain(display, this.codomain, rectCodomain, styleCodomain);
+
+        this.drawMappings(display, domainShapes, codomainShapes, style);
+    }
+
+
+    private drawMappings(display: Display,
+        domainShapes: Shape[],
+        codomainShapes: Shape[],
+        style?: Style) {
+
+        for (let d = 0; d < this.domain.length; d++) {
+            for (let cd = 0; cd < this.codomain.length; cd++) {
+                if (this.mappings[d][cd]) {
+                    display.connect(domainShapes[d], codomainShapes[cd]);
+                    // todo return;
+                }
+            }
+        }
+
     }
 	
 	/**
@@ -382,70 +510,50 @@ class Relation implements Immutable<RelationFields>{
 	 * </pre>
 	 * 
 	 * 
-	 * Draws domain within given rect
+	 * Draws domain within given rect. Returns the ids of the created circles.
 	 */
-    drawDomain(display: Display, domain: Object[], rect: Rect, style?: Style) {
+    drawDomain(display: Display, domain: Object[], rect: Rect, style?: Style): Shape[] {
         checkNotNull(domain);
         checkNotNull(rect);
+
         if (domain.length === 0) {
             return;
         }
 
-        let dy = rect.height / (domain.length + 1);
+        let ret: Shape[] = [];
+
+        let centres = Relation.getCircleCentres(domain.length, rect);
+        
+        let parentShape = display.drawShape(Shape.of());
+        
+        for (let domi = 0; domi < domain.length; domi++) {
+            ret.push(display.drawCircle(centres[domi],  DEFAULT_RADIUS, parentShape, style));
+            display.drawText(toText(domain[domi]), centres[domi], style);
+        }
+        return ret;
+
+    }
+
+    /** 
+     * Returns the centres of the circles to be displayed in a given domain/codomain region 
+     * @param n The dimension of the domain/codomain
+     * @param rect the region where the domain/codomain will be represented
+     * 
+     */
+    private static getCircleCentres(n: number, rect: Rect): Point[] {
+        let ret = [];
+        let dy = rect.height / (n + 1);
         let x = rect.origin.x + (rect.width / 2);
 
-        for (let d of domain) {
-            for (let iy = 0; iy < domain.length; iy++) {
-                let y = rect.origin.y + rect.height - (iy + 1) * dy;
-                let center = new Point(x, y);
-                display.drawCircle(center, DEFAULT_RADIUS, style);
-                display.drawText(toText(d), center, style);
-            }
+        for (let domi = 0; domi < n; domi++) {
+            let y = rect.origin.y + rect.height - (domi + 1) * dy;
+            let center = new Point(x, y);
+            ret.push(center);
         }
+        return ret;
     }
-
 }
 
-
-interface PointFields {
-    x?:number;
-    y?:number;    
-}
-
-/**
- *  Coords in pixels
- * 
- * <pre>
- *  -1, 1   0, 1	1, 1
- *  -1, 0   0, 0    1, 0
- *  -1,-1   0,-1	1,-1
- *
- * </pre>
- * 
- */
-class Point implements Immutable<PointFields> {
-    private static DEFAULT = new Point(); 
-
-    constructor(public x = 0.0,
-                public y = 0.0) {
-        this.check();        
-    }
-    
-    check(){
-        checkNotNull(this.x);
-        checkNotNull(this.y);
-        return this;
-    }
-    
-    static of(properties?: PointFields) {
-        return of(Point.DEFAULT, properties);
-    }
-
-    with(properties?: PointFields) {
-        return wither(properties, this);
-    }
-
-}
 
 interface RectFields {
 	/**
@@ -457,7 +565,7 @@ interface RectFields {
 	 * Height from bottom to top (as it should be!)
 	 */
     height?: number;
-    
+
 }
 
 /**
@@ -465,26 +573,26 @@ interface RectFields {
  */
 class Rect implements Immutable<RectFields> {
 
-    private static DEFAULT = new Rect(); 
+    private static DEFAULT = new Rect();
 
     constructor(public origin = Point.of(),
-                public width = 0,
-                public height = 0) {
-        this.check();        
+        public width = 0,
+        public height = 0) {
+        this.check();
     }
-    
-    check(){
+
+    check() {
         checkNotNull(this.origin);
         checkNotNull(this.width);
         checkNotNull(this.height);
         return this;
     }
-    
+
     static of(properties?: RectFields) {
         return of(Rect.DEFAULT, properties);
     }
 
-    with(properties?: MyImmFields) {
+    with(properties?: RectFields) : this {
         return wither(properties, this);
     }
 }
@@ -600,16 +708,60 @@ class Display {
         //image.clipWith(text)
     }
 
-    drawLine(a: Point, b: Point) {
+    drawShape(shape : Shape) : Shape {
+        let g = this.draw.group();        
+        return Shape.of({id:g.attr('id')})
+    }
+
+    /** 
+     * Draws a line between two elements
+    */
+    connect(shape1: Shape, shape2: Shape) {
+        checkNotNull(shape1);
+        checkNotNull(shape2);
+
+        var el1 = SVG.get(shape1.id);
+        var el2 = SVG.get(shape2.id);
+
+        console.log("el1 = ", el1);
+        console.log("el2 = ", el2);
+
+        var links = this.draw.group();
+        var markers = this.draw.group();        
+    
+        el1.connectable({
+            container: links,
+            markers: markers,
+            padEllipse : true
+        }, el2).setLineColor("#5D4037");
 
     }
 
-    drawCircle(centre: Point, radius: number, style = Style.of()) {
+    drawLine(a: Point, b: Point, style = Style.of()) {
+
+        this.draw.line(this.xToViewport(a.x), this.yToViewport(a.y),
+            this.xToViewport(b.x), this.yToViewport(b.y))
+            .stroke(style.color);
+    }
+
+
+    /** 
+     * @param parentShape MUST BE A GROUP!
+    */
+    drawCircle(centre: Point, radius: number, parentShape : Shape, style = Style.of()): Shape {
         checkNotNull(centre);
         checkNotNull(radius);
-        this.draw.circle(radius)
-            .move(this.xToViewport(centre.x - (radius / 2)), this.yToViewport(centre.y + (radius / 2)))
+        checkNotNull(parentShape);
+        
+        let nodes = SVG.get(parentShape.id);
+        let g = nodes.group()
+            .move(this.xToViewport(centre.x - (radius / 2)), this.yToViewport(centre.y + (radius / 2)));
+        g.circle(radius)
             .fill(style.backgroundColor)
+            .stroke(style.borderColor);
+        console.log("group.attr('id')=", nodes.attr("id"));
+        
+        return Shape.of({ id: g.attr("id"), centre: centre });
     }
 
     drawRect(rect: Rect, style = Style.of()) {
@@ -622,17 +774,38 @@ class Display {
 
 }
 
-let rel = new Relation(["a", "b"], [1, 2], [[true, false], [false, false]]);
+let beliefs = ['☮', '☯', '☭']
 
-let display = new Display(300, 300);
-console.log("r = ", rel);
+let stars = ['★', '✩'];
 
-let relStyle = Style.DEFAULT.with({ backgroundColor: "#00f" });
-        
+let hands = ['☜', '☝', '☞', '☟'];
 
-//display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
+let dangers = ['☢', '☣', '⚡', '☠'];
 
-let relRect = new Rect(new Point(0, 0), display.rect.width / 3, display.rect.height / 3);
+let smilies = ['☹', '☺'];
 
-rel.draw(display, relRect, relStyle);
+let weather3 = ['☼', '☁', '☂']
+let weather4 = ['☼', '☁', '☂', '❄']
 
+let rel = Relation.of({
+    domain: weather3,
+    codomain: smilies,
+    mappings: [[true, false],
+        [false, false],
+        [false, true]]
+});
+
+window.addEventListener("load", function() {
+    let display = new Display(300, 300);
+    console.log("r = ", rel);
+
+    let relStyle = Style.DEFAULT.with({ backgroundColor: "#00f" });
+            
+
+    //display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
+
+    let relRect = new Rect(new Point(0, 0), display.rect.width / 3, display.rect.height / 3);
+
+    rel.draw(display, relRect, relStyle);
+
+});

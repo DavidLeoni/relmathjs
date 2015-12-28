@@ -70,7 +70,7 @@ function deepClone(src, /* INTERNAL */ _visited) {
 }
 var SVG;
 var checkNotNull = function (x, msg) {
-    if (x || typeof x === "number" || typeof x === "string") {
+    if (x || typeof x === "number" || typeof x === "string" || typeof x === "boolean") {
         return x;
     }
     else {
@@ -101,17 +101,21 @@ var checkEquals = function (x, y, msg) {
     }
 };
 /**
- * Checks provided array is not empty
+ * Checks provided array or string is not empty
  */
-var checkNotEmpty = function (arr, msg) {
-    checkNotNull(arr);
-    checkArgument(Array.isArray(arr), "PRovided param is not an Array!");
-    if (arr.length > 0) {
-        return arr;
+var checkNotEmpty = function (obj, msg) {
+    checkNotNull(obj);
+    if (typeof obj === "string" || Array.isArray(obj)) {
+        if (obj.length > 0) {
+            return obj;
+        }
+        else {
+            var newMsg = msg ? msg : "Provided parameter is not empty! :" + obj;
+            throw new Error(newMsg);
+        }
     }
     else {
-        var newMsg = msg ? msg : "Provided parameter is not an array! :" + arr;
-        throw new Error(newMsg);
+        throw new Error("Provided param is not an Array nor a string! " + obj);
     }
 };
 /**
@@ -173,6 +177,10 @@ var MyImm = (function () {
     MyImm.of = function (properties) {
         return of(MyImm.DEFAULT, properties);
     };
+    /**
+     * Note we currently need to manually add the 'this' as strangely
+     * enough Typescript doesn't infer the type.
+    */
     MyImm.prototype.with = function (properties) {
         return wither(properties, this);
     };
@@ -215,7 +223,7 @@ var Style = (function () {
         if (color === void 0) { color = "#000"; }
         if (backgroundColor === void 0) { backgroundColor = "#fff"; }
         if (borderColor === void 0) { borderColor = "#000"; }
-        if (fontSize === void 0) { fontSize = 10; }
+        if (fontSize === void 0) { fontSize = 20; }
         this.color = color;
         this.backgroundColor = backgroundColor;
         this.borderColor = borderColor;
@@ -243,86 +251,6 @@ var DEBUG_STYLE = Style.DEFAULT.with({
     color: "#f00",
     borderColor: "#f00",
 });
-/**
- * <pre>
- *
- *   0 1 2
- * 0 .
- * 1 .
- * 2   .
- * 3 . .
- *
- * </pre>
- */
-var Relation = (function () {
-    function Relation(domain, codomain, mappings) {
-        if (domain === void 0) { domain = []; }
-        if (codomain === void 0) { codomain = []; }
-        if (mappings === void 0) { mappings = []; }
-        this.domain = domain;
-        this.codomain = codomain;
-        this.mappings = mappings;
-        this.check();
-    }
-    Relation.prototype.check = function () {
-        var _this = this;
-        checkNotNull(this.domain);
-        checkNotNull(this.codomain);
-        checkNotNull(this.mappings);
-        checkArgument(this.mappings.length === this.domain.length, "Mappings should have "
-            + this.domain.length + " rows, "
-            + " but has instead length " + this.mappings.length);
-        this.mappings.forEach(function (arr, i) {
-            checkArgument(_this.mappings[i].length === _this.codomain.length, "Mappings row at " + i + " has length "
-                + _this.mappings[i].length + " but should have length " + _this.codomain.length);
-        });
-        return this;
-    };
-    Relation.of = function (properties) {
-        return of(Relation.DEFAULT, properties);
-    };
-    Relation.prototype.with = function (properties) {
-        return wither(properties, this);
-    };
-    Relation.prototype.draw = function (display, rect, style) {
-        display.drawRect(rect, DEBUG_STYLE);
-        this.drawDomain(display, this.domain, rect, style);
-    };
-    /**
-     * <pre>
-     * -------
-     * |     |
-     * |- a -|
-     * |     |
-     * |- b -|
-     * |     |
-     * -------
-     * </pre>
-     *
-     *
-     * Draws domain within given rect
-     */
-    Relation.prototype.drawDomain = function (display, domain, rect, style) {
-        checkNotNull(domain);
-        checkNotNull(rect);
-        if (domain.length === 0) {
-            return;
-        }
-        var dy = rect.height / (domain.length + 1);
-        var x = rect.origin.x + (rect.width / 2);
-        for (var _i = 0; _i < domain.length; _i++) {
-            var d = domain[_i];
-            for (var iy = 0; iy < domain.length; iy++) {
-                var y = rect.origin.y + rect.height - (iy + 1) * dy;
-                var center = new Point(x, y);
-                display.drawCircle(center, DEFAULT_RADIUS, style);
-                display.drawText(toText(d), center, style);
-            }
-        }
-    };
-    Relation.DEFAULT = new Relation();
-    return Relation;
-})();
 /**
  *  Coords in pixels
  *
@@ -355,6 +283,153 @@ var Point = (function () {
     };
     Point.DEFAULT = new Point();
     return Point;
+})();
+/**
+ * The bridge between logical view and physical view determined by the id
+ */
+var Shape = (function () {
+    function Shape(id, centre) {
+        if (id === void 0) { id = "relmath-default-id"; }
+        if (centre === void 0) { centre = Point.of(); }
+        this.id = id;
+        this.centre = centre;
+        this.check();
+    }
+    Shape.prototype.check = function () {
+        checkNotEmpty(this.id);
+        checkNotNull(this.centre);
+        return this;
+    };
+    Shape.of = function (properties) {
+        return of(Shape.DEFAULT, properties);
+    };
+    Shape.prototype.with = function (properties) {
+        return wither(properties, this);
+    };
+    Shape.DEFAULT = new Shape();
+    return Shape;
+})();
+/**
+ * <pre>
+ *
+ *   0 1 2
+ * 0 .
+ * 1 .
+ * 2   .
+ * 3 . .
+ *
+ * </pre>
+ */
+var Relation = (function () {
+    function Relation(domain, codomain, mappings) {
+        if (domain === void 0) { domain = []; }
+        if (codomain === void 0) { codomain = []; }
+        if (mappings === void 0) { mappings = []; }
+        this.domain = domain;
+        this.codomain = codomain;
+        this.mappings = mappings;
+        this.check();
+    }
+    Relation.prototype.check = function () {
+        var _this = this;
+        checkNotNull(this.domain);
+        checkNotNull(this.codomain);
+        checkNotNull(this.mappings);
+        checkArgument(this.mappings.length === this.domain.length, "Relation mappings should have "
+            + this.domain.length + " rows, "
+            + " but has instead length " + this.mappings.length);
+        this.mappings.forEach(function (arr, i) {
+            checkArgument(_this.mappings[i].length === _this.codomain.length, "Relation mapping row at " + i + " has length "
+                + _this.mappings[i].length + " but should have length " + _this.codomain.length);
+        });
+        return this;
+    };
+    Relation.of = function (properties) {
+        return of(Relation.DEFAULT, properties);
+    };
+    Relation.prototype.with = function (properties) {
+        return wither(properties, this);
+    };
+    Relation.prototype.draw = function (display, rect, style) {
+        display.drawRect(rect, DEBUG_STYLE);
+        var rectDomain = rect.with({ width: rect.width / 2 });
+        console.log("this.domain = ", this.domain);
+        var styleDomain = style.with({
+            backgroundColor: "#fc9",
+            color: "#000",
+            borderColor: "#000"
+        });
+        var domainShapes = this.drawDomain(display, this.domain, rectDomain, styleDomain);
+        var styleCodomain = styleDomain.with({
+            backgroundColor: "#9cf"
+        });
+        var rectCodomain = rect.with({
+            width: rect.width / 2,
+            origin: rect.origin.with({
+                x: rect.origin.x + (rect.width / 2)
+            })
+        });
+        console.log("this.codomain = ", this.codomain);
+        var codomainShapes = this.drawDomain(display, this.codomain, rectCodomain, styleCodomain);
+        this.drawMappings(display, domainShapes, codomainShapes, style);
+    };
+    Relation.prototype.drawMappings = function (display, domainShapes, codomainShapes, style) {
+        for (var d = 0; d < this.domain.length; d++) {
+            for (var cd = 0; cd < this.codomain.length; cd++) {
+                if (this.mappings[d][cd]) {
+                    display.connect(domainShapes[d], codomainShapes[cd]);
+                }
+            }
+        }
+    };
+    /**
+     * <pre>
+     * -------
+     * |     |
+     * |- a -|
+     * |     |
+     * |- b -|
+     * |     |
+     * -------
+     * </pre>
+     *
+     *
+     * Draws domain within given rect. Returns the ids of the created circles.
+     */
+    Relation.prototype.drawDomain = function (display, domain, rect, style) {
+        checkNotNull(domain);
+        checkNotNull(rect);
+        if (domain.length === 0) {
+            return;
+        }
+        var ret = [];
+        var centres = Relation.getCircleCentres(domain.length, rect);
+        var parentShape = display.drawShape(Shape.of());
+        for (var domi = 0; domi < domain.length; domi++) {
+            ret.push(display.drawCircle(centres[domi], DEFAULT_RADIUS, parentShape, style));
+            display.drawText(toText(domain[domi]), centres[domi], style);
+        }
+        return ret;
+    };
+    /**
+     * Returns the centres of the circles to be displayed in a given domain/codomain region
+     * @param n The dimension of the domain/codomain
+     * @param rect the region where the domain/codomain will be represented
+     *
+     */
+    Relation.getCircleCentres = function (n, rect) {
+        var ret = [];
+        var dy = rect.height / (n + 1);
+        var x = rect.origin.x + (rect.width / 2);
+        for (var domi = 0; domi < n; domi++) {
+            var y = rect.origin.y + rect.height - (domi + 1) * dy;
+            var center = new Point(x, y);
+            ret.push(center);
+        }
+        return ret;
+    };
+    Relation.DEFAULT = new Relation();
+    return Relation;
 })();
 /**
  *  Coords in pixels, see {@link Point}
@@ -467,15 +542,49 @@ var Display = (function () {
     Display.prototype.yToViewport = function (y) {
         return (this.rect.height / 2) - y;
     };
-    Display.prototype.drawLine = function (a, b) {
+    Display.prototype.drawShape = function (shape) {
+        var g = this.draw.group();
+        return Shape.of({ id: g.attr('id') });
     };
-    Display.prototype.drawCircle = function (centre, radius, style) {
+    /**
+     * Draws a line between two elements
+    */
+    Display.prototype.connect = function (shape1, shape2) {
+        checkNotNull(shape1);
+        checkNotNull(shape2);
+        var el1 = SVG.get(shape1.id);
+        var el2 = SVG.get(shape2.id);
+        console.log("el1 = ", el1);
+        console.log("el2 = ", el2);
+        var links = this.draw.group();
+        var markers = this.draw.group();
+        el1.connectable({
+            container: links,
+            markers: markers,
+            padEllipse: true
+        }, el2).setLineColor("#5D4037");
+    };
+    Display.prototype.drawLine = function (a, b, style) {
+        if (style === void 0) { style = Style.of(); }
+        this.draw.line(this.xToViewport(a.x), this.yToViewport(a.y), this.xToViewport(b.x), this.yToViewport(b.y))
+            .stroke(style.color);
+    };
+    /**
+     * @param parentShape MUST BE A GROUP!
+    */
+    Display.prototype.drawCircle = function (centre, radius, parentShape, style) {
         if (style === void 0) { style = Style.of(); }
         checkNotNull(centre);
         checkNotNull(radius);
-        this.draw.circle(radius)
-            .move(this.xToViewport(centre.x - (radius / 2)), this.yToViewport(centre.y + (radius / 2)))
-            .fill(style.backgroundColor);
+        checkNotNull(parentShape);
+        var nodes = SVG.get(parentShape.id);
+        var g = nodes.group()
+            .move(this.xToViewport(centre.x - (radius / 2)), this.yToViewport(centre.y + (radius / 2)));
+        g.circle(radius)
+            .fill(style.backgroundColor)
+            .stroke(style.borderColor);
+        console.log("group.attr('id')=", nodes.attr("id"));
+        return Shape.of({ id: g.attr("id"), centre: centre });
     };
     Display.prototype.drawRect = function (rect, style) {
         if (style === void 0) { style = Style.of(); }
@@ -486,11 +595,26 @@ var Display = (function () {
     };
     return Display;
 })();
-var rel = new Relation(["a", "b"], [1, 2], [[true, false], [false, false]]);
-var display = new Display(300, 300);
-console.log("r = ", rel);
-var relStyle = Style.DEFAULT.with({ backgroundColor: "#00f" });
-//display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
-var relRect = new Rect(new Point(0, 0), display.rect.width / 3, display.rect.height / 3);
-rel.draw(display, relRect, relStyle);
+var beliefs = ['☮', '☯', '☭'];
+var stars = ['★', '✩'];
+var hands = ['☜', '☝', '☞', '☟'];
+var dangers = ['☢', '☣', '⚡', '☠'];
+var smilies = ['☹', '☺'];
+var weather3 = ['☼', '☁', '☂'];
+var weather4 = ['☼', '☁', '☂', '❄'];
+var rel = Relation.of({
+    domain: weather3,
+    codomain: smilies,
+    mappings: [[true, false],
+        [false, false],
+        [false, true]]
+});
+window.addEventListener("load", function () {
+    var display = new Display(300, 300);
+    console.log("r = ", rel);
+    var relStyle = Style.DEFAULT.with({ backgroundColor: "#00f" });
+    //display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
+    var relRect = new Rect(new Point(0, 0), display.rect.width / 3, display.rect.height / 3);
+    rel.draw(display, relRect, relStyle);
+});
 //# sourceMappingURL=index.js.map

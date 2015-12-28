@@ -1,0 +1,35 @@
+{
+  "name": "relmath",
+  "version": "0.1.0",
+  "description": "Visual matrix algebra for education",
+  "contributors": [
+    "David Leoni  https://github.com/DavidLeoni"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DavidLeoni/relmath.git"
+  },
+  "keywords": [
+    "relational mathematics",
+    "matrixes",
+    "edu",
+    "learning"    
+  ],
+  "author": "David Leoni",
+  "license": "Apachev2.0",
+  "bugs": {
+    "url": "https://github.com/DavidLeoni/relmath/issues"
+  },
+  "homepage": "https://github.com/DavidLeoni/relmath.git",
+  "scripts": {
+      "build" : "npm install && cp node_modules/svg.js/dist/svg.js . && cp node_modules/svg.draggy.js/src/svg.draggy.js . && cp node_modules/svg.connectable.js/dist/svg.connectable.js . && tsc"
+  },
+  "dependencies": {
+    "svg.js":"2.2.4",
+    "svg.draggy.js":"1.1.0",  
+    "svg.connectable.js": "^2.0.0"
+  },
+  "devDependencies": {
+      "typescript":"^1.7.5"
+  }
+}
