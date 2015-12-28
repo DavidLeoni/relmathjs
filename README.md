@@ -8,8 +8,13 @@ Project status: planning
 
 To develop:
 
+Install with root permissions (i.e. in Ubuntu write 'sudo npm install ...')
+
+Install Node >= 0.10.25 . Then
+
 ```bash
 npm install -g typescript
+npm install -g http-server
 ```
 
 ```bash
@@ -22,3 +27,4 @@ http-server -p 8000
 ```
 
 Go to  <a href="http://localhost:8000/" target="_blank">http://localhost:8000/</a>
+
