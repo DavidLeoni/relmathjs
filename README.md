@@ -8,9 +8,11 @@ Project status: planning
 
 To develop:
 
-Install with root permissions (i.e. in Ubuntu write 'sudo npm install ...')
+
 
 Install Node >= 0.10.25 . Then
+
+Install with root permissions (i.e. in Ubuntu write 'sudo npm install ...')
 
 ```bash
 npm install -g typescript

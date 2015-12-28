@@ -310,6 +310,8 @@ var Shape = (function () {
     return Shape;
 })();
 /**
+ * The logical representation of a Relation.
+ *
  * <pre>
  *
  *   0 1 2
@@ -599,22 +601,22 @@ var beliefs = ['☮', '☯', '☭'];
 var stars = ['★', '✩'];
 var hands = ['☜', '☝', '☞', '☟'];
 var dangers = ['☢', '☣', '⚡', '☠'];
-var smilies = ['☹', '☺'];
+var smilies = ['☺', '☹'];
 var weather3 = ['☼', '☁', '☂'];
 var weather4 = ['☼', '☁', '☂', '❄'];
 var rel = Relation.of({
     domain: weather3,
     codomain: smilies,
-    mappings: [[true, false],
+    mappings: [[true, true],
         [false, false],
-        [false, true]]
+        [true, false]]
 });
 window.addEventListener("load", function () {
     var display = new Display(300, 300);
     console.log("r = ", rel);
     var relStyle = Style.DEFAULT.with({ backgroundColor: "#00f" });
     //display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
-    var relRect = new Rect(new Point(0, 0), display.rect.width / 3, display.rect.height / 3);
+    var relRect = new Rect(display.rect.origin, display.rect.width / 1.5, display.rect.height / 1.5);
     rel.draw(display, relRect, relStyle);
 });
 //# sourceMappingURL=index.js.map

@@ -407,6 +407,8 @@ interface RelationFields {
 
 
 /**
+ * The logical representation of a Relation. 
+ * 
  * <pre>
  * 
  *   0 1 2
@@ -782,7 +784,7 @@ let hands = ['☜', '☝', '☞', '☟'];
 
 let dangers = ['☢', '☣', '⚡', '☠'];
 
-let smilies = ['☹', '☺'];
+let smilies = ['☺', '☹'];
 
 let weather3 = ['☼', '☁', '☂']
 let weather4 = ['☼', '☁', '☂', '❄']
@@ -790,9 +792,9 @@ let weather4 = ['☼', '☁', '☂', '❄']
 let rel = Relation.of({
     domain: weather3,
     codomain: smilies,
-    mappings: [[true, false],
+    mappings: [[true, true],
         [false, false],
-        [false, true]]
+        [true, false]]
 });
 
 window.addEventListener("load", function() {
@@ -804,7 +806,7 @@ window.addEventListener("load", function() {
 
     //display.drawCircle(new Point(0,0), 30, Style.builder().backgroundColor("#f00").build());
 
-    let relRect = new Rect(new Point(0, 0), display.rect.width / 3, display.rect.height / 3);
+    let relRect = new Rect(display.rect.origin, display.rect.width / 1.5, display.rect.height / 1.5);
 
     rel.draw(display, relRect, relStyle);
 
